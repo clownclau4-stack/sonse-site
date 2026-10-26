@@ -338,6 +338,18 @@ button.list-row:hover .t{color:var(--accent)}
 .cf-profile-hero.compact .cf-profile-elo-chip{padding:3px 7px}
 .cf-profile-hero.compact .cf-profile-perks{margin-top:2px}
 .cf-banner-upload{margin:8px 0 4px}
+.cf-news-uploader{border:1px dashed color-mix(in srgb,var(--accent) 58%,var(--line));border-radius:15px;padding:12px;background:linear-gradient(145deg,color-mix(in srgb,var(--accent) 9%,var(--panel)),var(--panel));transition:border-color .18s,background .18s,box-shadow .18s}
+.cf-news-uploader.is-dragging{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--panel));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
+.cf-news-native-input{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.cf-news-pick{display:flex;width:100%;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--inset);color:var(--text);text-align:left;cursor:pointer;transition:transform .16s,border-color .16s,background .16s}
+.cf-news-pick:hover:not(:disabled),.cf-news-pick:focus-visible{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--inset));outline:none}
+.cf-news-pick:active:not(:disabled){transform:scale(.99)}
+.cf-news-pick:disabled{opacity:.55;cursor:wait}
+.cf-news-pick-icon{display:grid;place-items:center;flex:none;width:42px;height:42px;border-radius:12px;background:color-mix(in srgb,var(--accent) 16%,var(--inset));color:var(--accent);font-size:22px;font-weight:900}
+.cf-news-pick-copy{display:grid;gap:3px;min-width:0;flex:1}.cf-news-pick-copy b{font-size:14px}.cf-news-pick-copy small{color:var(--muted);font-size:12px}
+.cf-news-pick-action{flex:none;padding:8px 11px;border-radius:9px;background:var(--accent);color:#fff;font-size:12px;font-weight:850}
+.cf-news-preview{display:grid;gap:8px;margin-top:10px}.cf-news-preview:empty{display:none}.cf-news-preview-media{display:block;width:min(100%,480px);max-height:260px;object-fit:contain;border-radius:11px;background:#080a0e}.cf-news-preview-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.cf-news-preview-meta span{min-width:0;overflow-wrap:anywhere;color:var(--muted);font-size:12px}
+@media(max-width:420px){.cf-news-pick{gap:9px;padding:9px}.cf-news-pick-icon{width:36px;height:36px}.cf-news-pick-action{padding:7px 8px;font-size:11px}}
 .cf-sponsor-modal{align-items:end;padding:10px}.cf-sponsor-modal .modal{max-width:520px;margin:0 auto;border-radius:20px 20px 10px 10px;padding:24px 20px calc(18px + env(safe-area-inset-bottom));transform:translateY(35px);background:linear-gradient(155deg,#12243a,#0d131c 72%);border:1px solid #3989e866}.cf-sponsor-modal.open .modal{transform:translateY(0)}.cf-sponsor-sheet{text-align:center}.cf-sponsor-sheet .cf-sponsor-badge-preview{margin:0 auto 10px}.cf-sponsor-support{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 22px;border-radius:12px;background:linear-gradient(135deg,#258cf5,#1457b5);color:#fff;font-weight:800;text-decoration:none;box-shadow:0 8px 24px #1678e444}
 .cf-sponsor-customize{border:1px solid #3989e855;border-radius:12px;padding:12px;background:#1678e410;margin:12px 0}.cf-sponsor-preview{height:72px;margin:8px 0 10px;border-radius:10px;background:#111 center/cover no-repeat;border:1px solid var(--line)}.cf-sponsor-style-select{margin-top:6px}
 @media(max-width:420px){.cf-profile-hero{min-height:126px}.cf-profile-hero-content{padding:14px 12px;gap:11px}.cf-profile-userpic .avatar{--s:68px!important;width:68px;height:68px;border-radius:14px}.cf-profile-userpic .avatar img{border-radius:11px!important}.cf-profile-hero:not(.compact) .cf-profile-rankline{flex-wrap:nowrap;gap:5px}.cf-profile-hero:not(.compact) .cf-profile-rankline .lvl-ic{width:26px;height:26px}.cf-profile-hero:not(.compact) .cf-profile-level-label{font-size:10px;letter-spacing:.03em;white-space:nowrap}.cf-profile-hero:not(.compact) .cf-profile-elo-chip{gap:4px;padding:3px 6px;white-space:nowrap}.cf-profile-hero:not(.compact) .cf-profile-elo-chip small{font-size:8px}.cf-profile-hero:not(.compact) .cf-profile-elo-chip b{font-size:12px}.cf-profile-hero.compact .cf-profile-hero-content{padding:11px 10px}.cf-profile-hero.compact .cf-profile-userpic .avatar{--s:52px!important;width:52px;height:52px}.cf-profile-social{gap:7px}.cf-profile-social .chip{font-size:11px;padding:6px 8px}}
@@ -2351,31 +2363,51 @@ function newsImg(n, i, cls, eager) {
   if (n.mediaType === 'video' || /\.mp4(?:$|[?#])/i.test(n.img)) return '<video class="' + (cls || 'cover') + '" src="' + esc(n.img) + '" aria-label="' + esc(n.title) + '" controls muted playsinline preload="metadata"' + (eager ? '' : ' loading="lazy"') + '></video>';
   return '<img class="' + (cls || 'cover') + '" src="' + esc(n.img) + '" alt="' + esc(n.title) + '"' + (eager ? '' : ' loading="lazy"') + ' decoding="async" data-fb="' + fb + '">';
 }
+function cfAdminNewsFileInfo(file){
+  if(!file)return null;
+  var ext=String(file.name||'').split('.').pop().toLowerCase(),types={jpg:{mime:'image/jpeg',media:'image',max:10*1024*1024},jpeg:{mime:'image/jpeg',media:'image',max:10*1024*1024},png:{mime:'image/png',media:'image',max:10*1024*1024},webp:{mime:'image/webp',media:'image',max:10*1024*1024},gif:{mime:'image/gif',media:'image',max:10*1024*1024},mp4:{mime:'video/mp4',media:'video',max:50*1024*1024}},info=types[ext],reported=String(file.type||'').toLowerCase();
+  if(reported==='image/jpg')reported='image/jpeg';
+  if(!info||(reported&&reported!=='application/octet-stream'&&reported!==info.mime))return null;
+  return {ext:ext==='jpeg'?'jpg':ext,mime:info.mime,media:info.media,max:info.max};
+}
 function cfPreviewAdminNewsMedia(input){
-  var preview=$('#cfNewsMediaPreview'),file=input&&input.files&&input.files[0];
+  var preview=$('#cfNewsMediaPreview'),file=input&&input.files&&input.files[0],info=file&&cfAdminNewsFileInfo(file);
   if(cfNewsPreviewUrl){URL.revokeObjectURL(cfNewsPreviewUrl);cfNewsPreviewUrl='';}
   if(!preview)return;
   preview.innerHTML='';
-  if(!file){preview.textContent='';return;}
-  var allowed=['image/jpeg','image/png','image/webp','image/gif','video/mp4'];
-  if(allowed.indexOf(file.type)<0){input.value='';preview.textContent='Выбери JPG, PNG, WebP, GIF или MP4.';toast('Допустимы фото или MP4','error');return;}
-  var max=file.type==='video/mp4'?50*1024*1024:10*1024*1024;
-  if(file.size>max){input.value='';preview.textContent=file.type==='video/mp4'?'MP4 должен быть не больше 50 МБ.':'Фото должно быть не больше 10 МБ.';toast(preview.textContent,'error');return;}
+  if(!file)return;
+  if(!info){input.value='';preview.textContent='Формат не поддерживается. Выбери JPG, PNG, WebP, GIF или MP4.';toast(preview.textContent,'error');return;}
+  if(file.size>info.max){input.value='';preview.textContent=info.media==='video'?'MP4 должен быть не больше 50 МБ.':'Фото должно быть не больше 10 МБ.';toast(preview.textContent,'error');return;}
   cfNewsPreviewUrl=URL.createObjectURL(file);
-  preview.innerHTML=(file.type==='video/mp4'?'<video controls muted playsinline style="display:block;width:min(100%,420px);max-height:220px;border-radius:12px;margin-top:8px"></video>':'<img alt="Предпросмотр фото новости" style="display:block;width:min(100%,420px);max-height:220px;object-fit:cover;border-radius:12px;margin-top:8px">')+'<span>'+esc(file.name)+' · '+cfDemoBytes(file.size)+'</span>';
-  var media=preview.querySelector(file.type==='video/mp4'?'video':'img');if(media)media.src=cfNewsPreviewUrl;
+  preview.innerHTML=(info.media==='video'?'<video class="cf-news-preview-media" controls muted playsinline preload="metadata"></video>':'<img class="cf-news-preview-media" alt="Предпросмотр фото новости">')+'<div class="cf-news-preview-meta"><span>'+esc(file.name)+' · '+cfDemoBytes(file.size)+'</span><button class="btn sm" type="button" id="cfNewsMediaRemove">Убрать файл</button></div>';
+  var media=preview.querySelector(info.media==='video'?'video':'img');if(media)media.src=cfNewsPreviewUrl;
+}
+function cfAdminNewsError(err,stage){
+  var msg=String(err&&(err.message||err.error_description||err.error)||'Неизвестная ошибка'),low=msg.toLowerCase(),status=Number(err&&err.statusCode||err&&err.status||0),code=String(err&&err.code||'');
+  if(/bucket.*not found|bucket.*does not exist|bucket.*missing/.test(low))return 'В Supabase не найдено хранилище cf-news-media. Выполни SQL/46_owner_news_media.sql.';
+  if(/нужно войти|jwt|session.*missing|auth session missing|not authenticated/.test(low)||((status===401||status===403)&&stage==='auth'))return 'Сеанс Supabase истёк. Выйди и снова войди в аккаунт владельца.';
+  if(/row-level security|violates row-level|permission denied|not authorized|unauthorized/.test(low)||status===401||status===403)return stage==='upload'?'Supabase запретил загрузку файла. Проверь, что ты вошёл именно в аккаунт владельца и в профиле role = founder; затем проверь политики SQL/46_owner_news_media.sql. Подробность: '+msg:'Недостаточно прав владельца для публикации. Войди в аккаунт с ролью founder. Подробность: '+msg;
+  if(/mime|content.?type|not allowed/.test(low))return 'Supabase не принимает этот формат. Разрешены JPG, PNG, WebP, GIF и MP4; проверь настройки bucket cf-news-media в SQL/46.';
+  if(/too large|payload|entity too large|size limit|exceed.*limit/.test(low)||status===413)return 'Файл больше лимита хранилища. Фото — до 10 МБ, MP4 — до 50 МБ; в Supabase для bucket cf-news-media нужен лимит не меньше 50 МБ.';
+  if(/could not find the function|function .* does not exist|schema cache|pgrst202/.test(low)||code==='PGRST202')return 'Supabase не видит функцию публикации. Примени или повторно выполни SQL/46_owner_news_media.sql, затем обнови страницу.';
+  if(/публиковать новости может только владелец/.test(low))return 'В базе у аккаунта должна быть роль founder. Проверь public.profiles.role и SQL/46_owner_news_media.sql.';
+  return (stage==='upload'?'Ошибка загрузки медиа: ':'Ошибка публикации новости: ')+msg;
 }
 async function cfAdminPublishNews(){
-  var me=getUser(),button=$('#cfAdminNewsPublish'),status=$('#cfAdminNewsStatus'),title=($('#newsTitle')&&$('#newsTitle').value||'').trim(),description=($('#newsDesc')&&$('#newsDesc').value||'').trim(),link=($('#newsLink')&&$('#newsLink').value||'').trim(),input=$('#cfNewsMedia'),file=input&&input.files&&input.files[0];
-  if(!me||!me.founder||!cfOnlineAccount||cfOnlineAccount.role!=='founder'){toast('Публиковать новости может только владелец онлайн-аккаунта','error');return;}
-  if(!cfSupabaseClient||!cfSupabaseClient.storage){toast('Облачное хранилище недоступно','error');return;}
+  var button=$('#cfAdminNewsPublish'),picker=$('#cfNewsMediaPick'),status=$('#cfAdminNewsStatus'),title=($('#newsTitle')&&$('#newsTitle').value||'').trim(),description=($('#newsDesc')&&$('#newsDesc').value||'').trim(),link=($('#newsLink')&&$('#newsLink').value||'').trim(),input=$('#cfNewsMedia'),file=input&&input.files&&input.files[0],info=file&&cfAdminNewsFileInfo(file);
+  if(!cfOnlineAccount||cfOnlineAccount.role!=='founder'){toast('Публиковать новости может только владелец онлайн-аккаунта','error');return;}
+  if(!cfSupabaseClient||!cfSupabaseClient.storage){toast('Облачное хранилище не подключено. Проверь настройки Supabase на сайте.','error');return;}
   if(!title||!description){toast('Заполни заголовок и описание новости','error');return;}
   if(link&&!/^https:\/\//i.test(link)){toast('Ссылка должна начинаться с https://','error');return;}
-  if(file){var allowed=['image/jpeg','image/png','image/webp','image/gif','video/mp4'],max=file.type==='video/mp4'?50*1024*1024:10*1024*1024;if(allowed.indexOf(file.type)<0||file.size>max){toast('Выбери фото до 10 МБ или MP4 до 50 МБ','error');return;}}
-  var path='',mediaType='',uploaded=false,rpcReturnedError=false;
-  if(button)button.disabled=true;if(status)status.textContent='Публикуем…';
+  if(file&&(!info||file.size>info.max)){toast(!info?'Выбери JPG, PNG, WebP, GIF или MP4.':info.media==='video'?'MP4 должен быть не больше 50 МБ.':'Фото должно быть не больше 10 МБ.','error');return;}
+  var path='',mediaType='',uploaded=false,rpcReturnedError=false,stage='auth';
+  if(button)button.disabled=true;if(picker)picker.disabled=true;if(status)status.textContent='Проверяем вход владельца…';
   try{
-    if(file){var ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','video/mp4':'mp4'}[file.type],id=window.crypto&&crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2);path=cfOnlineAccount.id+'/'+id+'.'+ext;mediaType=file.type==='video/mp4'?'video':'image';var up=await cfSupabaseClient.storage.from('cf-news-media').upload(path,file,{contentType:file.type,cacheControl:'3600',upsert:false});if(up.error)throw up.error;uploaded=true;}
+    var auth=await cfSupabaseClient.auth.getUser();
+    if(auth.error)throw auth.error;
+    if(!auth.data||!auth.data.user||auth.data.user.id!==cfOnlineAccount.id)throw new Error('Сеанс Supabase истёк или сменился. Выйди и снова войди в аккаунт владельца.');
+    if(file){stage='upload';if(status)status.textContent='Загружаем медиа…';var id=window.crypto&&crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2);path=cfOnlineAccount.id+'/'+id+'.'+info.ext;mediaType=info.media;var up=await cfSupabaseClient.storage.from('cf-news-media').upload(path,file,{contentType:info.mime,cacheControl:'3600',upsert:false});if(up.error)throw up.error;uploaded=true;}
+    stage='publish';if(status)status.textContent='Публикуем новость…';
     var published=await cfSupabaseClient.rpc('cf_owner_publish_news',{p_title:title,p_description:description,p_link:link||null,p_media_path:path||null,p_media_type:mediaType||null});
     if(published.error){rpcReturnedError=true;throw published.error;}
     if(status)status.textContent='Опубликовано. Новость доступна всем посетителям.';
@@ -2384,12 +2416,10 @@ async function cfAdminPublishNews(){
     toast('Новость опубликована для всех','success');
     await cfLoadOnlineNews(true);
   }catch(e){
-    var msg=e&&e.message||'Не удалось опубликовать новость';
-    if(/bucket .*not found|bucket.*does not exist/i.test(msg))msg='Сначала выполни SQL/46_owner_news_media.sql в Supabase.';
-    else if(/function .* does not exist|Could not find the function|media_path|media_type/i.test(msg))msg='Сначала выполни SQL/46_owner_news_media.sql в Supabase.';
+    var msg=cfAdminNewsError(e,stage);
     if(uploaded&&rpcReturnedError)try{await cfSupabaseClient.storage.from('cf-news-media').remove([path]);}catch(cleanupError){}
     if(status)status.textContent=msg;toast(msg,'error');
-  }finally{if(button)button.disabled=false;}
+  }finally{if(button)button.disabled=false;if(picker)picker.disabled=false;}
 }
 document.addEventListener('error', function (e) {
   var t = e.target;
@@ -3311,7 +3341,7 @@ function renderAdmin() {
     return '<div class="msg"><span class="chip accent">Сайт</span><span style="flex:1;min-width:0">' + esc(i.text) + '</span><time>' + esc(fmtClock(i.time)) + '</time></div>';
   }).join('') : '<div class="empty" style="padding:14px"><p style="margin:0">Сообщений пока нет. Они придут, когда игрок примет найденный матч.</p></div>';
   box.innerHTML =
-    (me && me.founder && cfOnlineAccount && cfOnlineAccount.role==='founder' ? '<section class="card"><div class="card-head"><h2>Редактор новостей</h2><span class="chip accent">Только владелец</span></div><p class="small muted" style="margin-bottom:12px">Опубликованные новости видны всем. Можно добавить фото или MP4. Загрузка доступна только владельцу сайта.</p><div class="field"><label for="newsTitle">Заголовок</label><input class="input" id="newsTitle" maxlength="100" placeholder="Заголовок новости"></div><div class="field"><label for="newsDesc">Краткое описание</label><input class="input" id="newsDesc" maxlength="240" placeholder="Короткий текст новости"></div><div class="field"><label for="newsLink">Ссылка (необязательно)</label><input class="input" id="newsLink" maxlength="500" placeholder="https://..."></div><div class="field"><label for="cfNewsMedia">Фото или видео MP4</label><input class="input" id="cfNewsMedia" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4"><p class="small muted">Фото до 10 МБ, видео MP4 до 50 МБ.</p><div id="cfNewsMediaPreview" class="small muted" aria-live="polite"></div></div><div class="btn-row"><button class="btn primary" type="button" id="cfAdminNewsPublish" data-act="news-add">Опубликовать новость</button></div><p class="small muted" id="cfAdminNewsStatus" aria-live="polite"></p></section>' : '<section class="card"><h2>Редактор новостей</h2><p class="small muted">Публиковать новости и загружать к ним медиа может только владелец сайта.</p></section>') +
+    (me && me.founder && cfOnlineAccount && cfOnlineAccount.role==='founder' ? '<section class="card"><div class="card-head"><h2>Редактор новостей</h2><span class="chip accent">Только владелец</span></div><p class="small muted" style="margin-bottom:12px">Опубликованные новости видны всем. Можно добавить фото или MP4. Загрузка доступна только владельцу сайта.</p><div class="field"><label for="newsTitle">Заголовок</label><input class="input" id="newsTitle" maxlength="100" placeholder="Заголовок новости"></div><div class="field"><label for="newsDesc">Краткое описание</label><input class="input" id="newsDesc" maxlength="240" placeholder="Короткий текст новости"></div><div class="field"><label for="newsLink">Ссылка (необязательно)</label><input class="input" id="newsLink" maxlength="500" placeholder="https://..."></div><div class="field"><label for="cfNewsMediaPick">Фото или видео MP4</label><div class="cf-news-uploader" id="cfNewsDropzone"><input class="cf-news-native-input" id="cfNewsMedia" type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,image/jpeg,image/png,image/webp,image/gif,video/mp4" aria-label="Выбрать фото или видео для новости"><button class="cf-news-pick" id="cfNewsMediaPick" type="button"><span class="cf-news-pick-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v5h14v-5"/></svg></span><span class="cf-news-pick-copy"><b>Добавить фото или видео</b><small>Нажми, чтобы выбрать файл, или перетащи его сюда</small></span><span class="cf-news-pick-action">Открыть</span></button><div id="cfNewsMediaPreview" class="cf-news-preview" aria-live="polite"></div></div><p class="small muted">JPG, PNG, WebP, GIF — до 10 МБ; MP4 — до 50 МБ. Для загрузки требуется SQL/46_owner_news_media.sql и вход под аккаунтом владельца.</p></div><div class="btn-row"><button class="btn primary" type="button" id="cfAdminNewsPublish" data-act="news-add">Опубликовать новость</button></div><p class="small muted" id="cfAdminNewsStatus" aria-live="polite"></p></section>' : '<section class="card"><h2>Редактор новостей</h2><p class="small muted">Публиковать новости и загружать к ним медиа может только владелец сайта.</p></section>') +
     '<section class="card"><div class="card-head"><h2>Сообщения от сайта</h2><span class="chip gold">Администратор</span></div>' + msgs + '</section>' +
     '<h2 style="font-size:16px;margin:4px 0 12px">Активные матчи</h2>' +
     (active.length ? active.map(function (m) { return adminMatchCard(m, me); }).join('') : '<div class="card empty">' + icon('play') + '<p>Активных матчей нет. Открой вкладку «Играть» под другим аккаунтом и прими найденный матч.</p></div>') +
@@ -3561,6 +3591,10 @@ function openPasswordRecovery(){
 }
 var forgotBtn=document.getElementById('forgotPassword');if(forgotBtn)forgotBtn.addEventListener('click',openPasswordRecovery);
 document.addEventListener('click',function(e){if(e.target&&e.target.id==='toggleSounds'){cfSoundOn=!cfSoundOn;localStorage.setItem('cfFaceit.sounds',cfSoundOn?'on':'off');cfSyncSearchSound();toast(cfSoundOn?'Звуки включены':'Звуки выключены');if(curSec==='profile')renderSection('profile');if(cfSoundOn)cfClickSound();}});
+document.addEventListener('click',function(e){var pick=e.target&&e.target.closest&&e.target.closest('#cfNewsMediaPick'),remove=e.target&&e.target.closest&&e.target.closest('#cfNewsMediaRemove'),input=$('#cfNewsMedia');if(pick&&input){input.click();return;}if(remove&&input){input.value='';cfPreviewAdminNewsMedia(input);}});
+document.addEventListener('dragover',function(e){var zone=e.target&&e.target.closest&&e.target.closest('#cfNewsDropzone');if(!zone)return;e.preventDefault();zone.classList.add('is-dragging');});
+document.addEventListener('dragleave',function(e){var zone=e.target&&e.target.closest&&e.target.closest('#cfNewsDropzone');if(zone&&(!e.relatedTarget||!zone.contains(e.relatedTarget)))zone.classList.remove('is-dragging');});
+document.addEventListener('drop',function(e){var zone=e.target&&e.target.closest&&e.target.closest('#cfNewsDropzone');if(!zone)return;e.preventDefault();zone.classList.remove('is-dragging');var input=$('#cfNewsMedia');if(!input||!e.dataTransfer||!e.dataTransfer.files||!e.dataTransfer.files.length)return;input.files=e.dataTransfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));});
 document.addEventListener('change',function(e){if(!e.target)return;if(e.target.id==='cfProfileBannerUpload')cfUploadProfileBanner(e.target.files&&e.target.files[0],e.target);if(e.target.id==='cfNewsMedia')cfPreviewAdminNewsMedia(e.target);});
 // Recovery callback is only available for a configured Supabase account.
 if(location.search.indexOf('reset-password=1')!==-1){setTimeout(function(){var client=cfSupabase();if(!client)return;openModal('<h2 id="modalTitle">Новый пароль</h2><form id="newPasswordForm"><div class="field"><label for="newPassword">Новый пароль</label><input class="input" id="newPassword" type="password" minlength="8" required autocomplete="new-password"></div><div class="field"><label for="newPassword2">Повтори пароль</label><input class="input" id="newPassword2" type="password" minlength="8" required autocomplete="new-password"></div><div class="btn-row"><button class="btn primary" type="submit">Сохранить пароль</button></div></form>',function(root){$('#newPasswordForm',root).addEventListener('submit',async function(e){e.preventDefault();var a=$('#newPassword',root).value,b=$('#newPassword2',root).value;if(a.length<8||a!==b){toast('Пароли должны совпадать и содержать минимум 8 символов','error');return;}var r=await client.auth.updateUser({password:a});if(r.error){toast(cfAuthErrorMessage(r.error,'recovery'),'error');return;}toast('Пароль онлайн-аккаунта обновлён','success');closeModal();history.replaceState({},'',location.pathname);});});},800);}

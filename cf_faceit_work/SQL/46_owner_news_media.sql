@@ -147,4 +147,7 @@ $function$;
 revoke all on function public.cf_owner_publish_news(text,text,text,text,text) from public,anon;
 grant execute on function public.cf_owner_publish_news(text,text,text,text,text) to authenticated;
 
+-- Refresh PostgREST so the newly installed RPC is immediately visible to the site.
+notify pgrst, 'reload schema';
+
 commit;
