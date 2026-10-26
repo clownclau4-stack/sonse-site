@@ -1,0 +1,115 @@
+--- a/PAGES_UPLOAD/index.html
++++ b/PAGES_UPLOAD/index.html
+@@ -1110,13 +1110,13 @@
+         <div class="field">
+           <label for="loginNick">Никнейм или почта</label>
+           <input class="input" id="loginNick" name="nickname" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="254" aria-describedby="loginIdentifierHint loginNickErr" required>
+-          <p class="small muted" id="loginIdentifierHint" aria-live="polite">Для входа по нику введи игровой ID из 6 или 7 цифр и пароль. Администраторы и основатель могут без ID.</p>
++          <p class="small muted" id="loginIdentifierHint" aria-live="polite">Для входа введи никнейм или почту и пароль. Игровой ID не требуется.</p>
+           <p class="err" id="loginNickErr" role="alert"></p>
+         </div>
+         <div class="field" id="loginGameIdField">
+           <label for="loginGameId">Игровой ID <span class="muted">(только для игроков)</span></label>
+           <input class="input" id="loginGameId" name="game_id" type="text" inputmode="numeric" pattern="[0-9]{6,7}" minlength="6" maxlength="7" autocomplete="off" placeholder="6 или 7 цифр; админам можно пусто" aria-describedby="loginGameIdHint loginGameIdErr">
+-          <p class="small muted" id="loginGameIdHint" style="margin-top:6px">Игрокам нужен ID из 6 или 7 цифр. Администраторы и основатель могут оставить поле пустым.</p>
++          <p class="small muted" id="loginGameIdHint" style="margin-top:6px">Игровой ID для входа не требуется.</p>
+           <p class="err" id="loginGameIdErr" role="alert"></p>
+         </div>
+         <div class="field">
+@@ -1137,7 +1137,7 @@
+         <div class="wiz-head"><div class="wiz-dots" id="wizDots"><i class="on"></i><i></i><i></i></div><p class="wiz-step" id="wizStep">Шаг 1 из 3</p></div>
+         <form id="formRegister" novalidate>
+           <section class="rstep on" data-step="1">
+-            <h2 class="rs-title">Игровой ID</h2><p class="rs-sub">Введи игровой ID из 6 или 7 цифр. Он нужен для входа.</p>
++            <h2 class="rs-title">Игровой ID</h2><p class="rs-sub">Введи игровой ID из 6 или 7 цифр. Он нужен для регистрации игрового профиля, но не для входа.</p>
+             <div class="field"><label for="regGameId">Игровой ID (6 или 7 цифр)</label>
+               <input class="input big" id="regGameId" name="game_id" type="text" inputmode="numeric" pattern="[0-9]{6,7}" minlength="6" maxlength="7" autocomplete="off" aria-describedby="regGameIdErr" required>
+               <p class="err" id="regGameIdErr" role="alert"></p></div>
+@@ -1768,7 +1768,7 @@
+   if (flow === 'register' && /nickname.{0,35}(already|exists|taken)|(?:already|exists|taken).{0,35}nickname|никнейм.{0,25}(занят|зарегистрирован)/.test(lower)) return 'Этот никнейм уже зарегистрирован. Введи другой.';
+   if (flow === 'register' && /game.?id.{0,35}(already|exists|taken)|(?:already|exists|taken).{0,35}game.?id|игровой id.{0,25}(занят|зарегистрирован)/.test(lower)) return 'Этот игровой ID уже занят. Введи другой.';
+   if (/email not confirmed|email_not_confirmed/.test(lower)) return 'Почта не подтверждена. Открой письмо от Supabase и подтверди адрес.';
+-  if (/invalid login credentials|invalid credentials|incorrect password|wrong password/.test(lower)) return flow === 'login' ? 'Неверный никнейм, игровой ID или пароль.' : 'Проверь почту и пароль.';
++  if (/invalid login credentials|invalid credentials|incorrect password|wrong password/.test(lower)) return flow === 'login' ? 'Неверный никнейм или пароль.' : 'Проверь почту и пароль.';
+   if (/too many requests|rate.?limit|security purposes|try again in|after \d+ seconds/.test(lower)) return 'Слишком много попыток. Подожди немного и попробуй снова.';
+   if (/password.{0,30}(weak|short|at least|minimum)|weak password/.test(lower)) return 'Пароль должен содержать не менее 8 символов.';
+   if (/invalid email|email.{0,20}(invalid|malformed)|unable to validate email/.test(lower)) return 'Проверь формат электронной почты.';
+@@ -1790,25 +1790,23 @@
+   return String(identifier || '').trim().indexOf('@') !== -1;
+ }
+ function updateLoginIdentifierUI() {
+-  var isEmail=cfLoginUsesEmail($('#loginNick').value);
+   var idField=$('#loginGameIdField'), idInput=$('#loginGameId'), hint=$('#loginIdentifierHint');
+-  idField.hidden=isEmail;
+-  idInput.disabled=isEmail;
+-  if(isEmail)setFieldError(idInput,'');
+-  hint.textContent=isEmail
++  idField.hidden=true;
++  idInput.disabled=true;
++  setFieldError(idInput,'');
++  hint.textContent=cfLoginUsesEmail($('#loginNick').value)
+     ? 'Для входа по почте нужны только адрес электронной почты и пароль.'
+-    : 'Для входа по нику введи игровой ID из 6 или 7 цифр и пароль. Администраторы и основатель могут без ID.';
++    : 'Для входа по нику нужны только никнейм и пароль. Игровой ID не требуется.';
+ }
+ async function onLoginSubmit(ev) {
+   ev.preventDefault();
+   if (authBusy) return;
+-  var nickEl=$('#loginNick'), gameIdEl=$('#loginGameId'), passEl=$('#loginPass');
+-  var nick=nickEl.value.trim(), gameId=gameIdEl.value.trim(), pass=passEl.value;
++  var nickEl=$('#loginNick'), passEl=$('#loginPass');
++  var nick=nickEl.value.trim(), pass=passEl.value;
+   var isEmail=cfLoginUsesEmail(nick);
+   if(isEmail)nick=nick.toLowerCase();
+   var first=null;
+   var nickMsg=isEmail?(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nick)?'':'Проверь формат почты.'):validateNick(nick);if(nickMsg){setFieldError(nickEl,nickMsg);first=nickEl;}else setFieldError(nickEl,'');
+-  var gameIdMsg=!isEmail&&gameId ? validateGameId(gameId) : '';if(gameIdMsg){setFieldError(gameIdEl,gameIdMsg);first=first||gameIdEl;}else setFieldError(gameIdEl,'');
+   if(!pass){setFieldError(passEl,'Введи пароль.');first=first||passEl;}else setFieldError(passEl,'');
+   if(first){var fst=first.closest('.rstep');if(fst&&+fst.dataset.step!==wiz.step)wizShow(+fst.dataset.step,true);first.focus();return;}
+   if(!cfSupabaseClient){toast('Supabase не загрузился (нет интернета или заблокирован CDN). Обнови страницу.','error');return;}
+@@ -1821,7 +1819,7 @@
+       if(er.error)throw new Error(cfAuthErrorMessage(er.error,'login'));
+       session=er.data.session;
+     }else{
+-      var r=await cfSupabaseClient.functions.invoke('login-by-nickname',{body:{nickname:nick,game_id:gameId,password:pass}});
++      var r=await cfSupabaseClient.functions.invoke('login-by-nickname',{body:{nickname:nick,password:pass}});
+       if(r.error){
+         var edgeMessage='';var st=r.error.context&&r.error.context.status;
+         try { if(r.error.context && typeof r.error.context.json==='function') { var errBody=await r.error.context.json(); if(errBody&&errBody.error) edgeMessage=errBody.error; } } catch(ignore) {}
+@@ -1832,7 +1830,7 @@
+         }
+         throw new Error(cfAuthErrorMessage(edgeMessage,'login'));
+       }
+-      if(!r.data||!r.data.access_token||!r.data.refresh_token)throw new Error((r.data&&r.data.error)||'Неверный никнейм, игровой ID или пароль.');
++      if(!r.data||!r.data.access_token||!r.data.refresh_token)throw new Error((r.data&&r.data.error)||'Неверный никнейм или пароль.');
+       var sr0=await cfSupabaseClient.auth.setSession({access_token:r.data.access_token,refresh_token:r.data.refresh_token});
+       if(sr0.error)throw sr0.error;
+       session=sr0.data.session;
+@@ -1843,8 +1841,7 @@
+   }catch(err){
+     if(session){try{await cfSupabaseClient.auth.signOut();}catch(ignoreSignOut){}cfOnlineAccount=null;}
+     var em=cfAuthErrorMessage(err,'login');
+-    if(em.indexOf('Игрокам нужен игровой ID')===0){setFieldError(gameIdEl,em);gameIdEl.focus();}
+-    else if(/почта не подтверждена/i.test(em)){setFieldError(nickEl,em);nickEl.focus();}
++    if(/почта не подтверждена/i.test(em)){setFieldError(nickEl,em);nickEl.focus();}
+     else setFieldError(passEl,em.length<90?em:'Не удалось войти.');
+     toast(em,'error');
+   }
+@@ -2095,7 +2092,7 @@
+     '<li><span>Не передавай пароль и данные аккаунта другим людям. Администрация никогда не просит пароль.</span></li>' +
+     '<li><span>Играй честно: без читов, оскорблений и обмана администраторов.</span></li>' +
+     '<li><span>Никнейм: 3–20 символов, латиница, цифры, _ и -. Никнеймы уникальны без учёта регистра.</span></li>' +
+-    '<li><span>Игровой ID: 6 или 7 цифр, только цифры. ID уникален и нужен при каждом входе.</span></li></ol>' +
++    '<li><span>Игровой ID: 6 или 7 цифр, только цифры. Он уникален и нужен для регистрации игрового профиля, но не для входа.</span></li></ol>' +
+     '<div class="btn-row"><button class="btn primary" type="button" data-close>Понятно</button></div>');
+ }
+ $('#openSetup').addEventListener('click', openSetupHelp);
+@@ -2357,7 +2354,7 @@
+ function mgSupportIdModal(){
+   if(!msgr.open||!mgOnline())return;
+   var chatId=msgr.open;
+-  openModal('<h2 id="modalTitle">Сменить игровой ID</h2><p class="small muted">Введи новый уникальный ID из 6 или 7 цифр. Меняется только ID твоего вошедшего аккаунта; старый ID перестанет подходить для входа.</p><form id="mgSupportIdForm"><div class="field"><label for="mgSupportNewId">Новый игровой ID</label><input class="input" id="mgSupportNewId" type="text" inputmode="numeric" pattern="[0-9]{6,7}" minlength="6" maxlength="7" autocomplete="off" required placeholder="6 или 7 цифр"></div><div class="btn-row"><button class="btn" type="button" data-close>Отмена</button><button class="btn primary" type="submit">Отправить запрос</button></div></form>',function(root){
++  openModal('<h2 id="modalTitle">Сменить игровой ID</h2><p class="small muted">Введи новый уникальный ID из 6 или 7 цифр. Меняется только ID твоего вошедшего аккаунта; для входа используй никнейм и пароль.</p><form id="mgSupportIdForm"><div class="field"><label for="mgSupportNewId">Новый игровой ID</label><input class="input" id="mgSupportNewId" type="text" inputmode="numeric" pattern="[0-9]{6,7}" minlength="6" maxlength="7" autocomplete="off" required placeholder="6 или 7 цифр"></div><div class="btn-row"><button class="btn" type="button" data-close>Отмена</button><button class="btn primary" type="submit">Отправить запрос</button></div></form>',function(root){
+     var input=$('#mgSupportNewId',root),form=$('#mgSupportIdForm',root),submit=form.querySelector('[type="submit"]');
+     input.addEventListener('input',function(){this.value=this.value.replace(/\D/g,'').slice(0,7);});
+     form.addEventListener('submit',async function(e){e.preventDefault();var newId=input.value.trim();if(!/^[0-9]{6,7}$/.test(newId)){toast('ID должен содержать ровно 6 или 7 цифр','error');return;}submit.disabled=true;try{await cfFriendRpc('msgr_send',{p_chat:chatId,p_body:'Сменить ID '+newId});closeModal();await mgFetch(false);try{var auth=await cfSupabaseClient.auth.getUser();if(auth.data&&auth.data.user)await cfLoadOnlineProfile(auth.data.user);}catch(ignoreProfileRefresh){}toast('Ответ поддержки добавлен в чат','success');}catch(err){toast(String(err.message||'Не удалось отправить запрос'),'error');submit.disabled=false;}});
