@@ -529,7 +529,7 @@ button.list-row:hover .t{color:var(--accent)}
 img.cover{object-fit:cover}
 .gallery{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
 .gallery .cover{width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;border-radius:10px;display:block}
-.article img.cover{border-radius:10px;margin-bottom:6px}
+.article img.cover,.article video.cover{border-radius:10px;margin-bottom:6px}
 .section-title{font-size:17px;margin:6px 0 12px}
 
 /* Search + lobby */
@@ -1402,6 +1402,29 @@ var DEFAULT_NEWS = [
       'Следи за новостями в канале разработчика.'] }
 ];
 var NEWS = DEFAULT_NEWS.slice();
+var cfOnlineNewsPromise=null,cfOnlineNewsLoaded=false,cfNewsPreviewUrl='';
+function cfMapOnlineNewsRow(row){
+  var path=String(row.media_path||row.image_path||''),url='';
+  if(/^https:\/\//i.test(path)||/^(?:\/|\.\/)?(?:images|assets)\//i.test(path))url=path;
+  else if(path&&cfSupabaseClient&&cfSupabaseClient.storage){var pub=cfSupabaseClient.storage.from('cf-news-media').getPublicUrl(path);url=pub&&pub.data&&pub.data.publicUrl||'';}
+  var description=String(row.description||'');
+  return {id:'online-'+String(row.id),feature:false,tag:'Новость',date:row.created_at?new Date(row.created_at).toLocaleDateString('ru-RU'):'',title:String(row.title||''),link:String(row.link||''),img:url,mediaType:row.media_type||(localeLower(path).endsWith('.mp4')?'video':'image'),desc:description,body:description?[description]:[]};
+}
+function localeLower(value){return String(value||'').toLowerCase();}
+async function cfLoadOnlineNews(force){
+  if(!cfSupabaseClient||!cfSupabaseClient.from)return false;
+  if(cfOnlineNewsPromise&&!force)return cfOnlineNewsPromise;
+  cfOnlineNewsPromise=(async function(){
+    var r=await cfSupabaseClient.from('news').select('id,title,description,link,image_path,media_path,media_type,published,created_at').eq('published',true).order('created_at',{ascending:false}).limit(60);
+    if(r.error)throw r.error;
+    var remote=(r.data||[]).map(cfMapOnlineNewsRow).filter(function(n){return n.title;});
+    NEWS=DEFAULT_NEWS.slice().concat(remote);
+    cfOnlineNewsLoaded=true;
+    if(curSec==='news')renderSection('news');
+    return true;
+  })().catch(function(err){console.warn('Online news could not be loaded',err);return false;}).finally(function(){cfOnlineNewsPromise=null;});
+  return cfOnlineNewsPromise;
+}
 
 /* ---------- Safe localStorage wrapper ---------- */
 var memStore = {};
@@ -1425,7 +1448,7 @@ function readJSON(k, fallback) {
   if (raw === null || raw === undefined) return fallback;
   try { return JSON.parse(raw); } catch (e) { return fallback; }
 }
-// Admin-editable news are persisted locally in demo mode. Online publishing requires a server database.
+// Older local news are retained for demo fallback; new public posts are stored through the owner-only server path.
 try { var savedNews = readJSON(KEYS.news, null); if (Array.isArray(savedNews)) NEWS = savedNews; } catch (e) {}
 
 /* ---------- Helpers ---------- */
@@ -2325,7 +2348,48 @@ function tplTop() {
 function newsImg(n, i, cls, eager) {
   var fb = n.link ? 'tg' : (i % 5);
   if (!n.img) return coverSVG(n.link ? 'tg' : i);
+  if (n.mediaType === 'video' || /\.mp4(?:$|[?#])/i.test(n.img)) return '<video class="' + (cls || 'cover') + '" src="' + esc(n.img) + '" aria-label="' + esc(n.title) + '" controls muted playsinline preload="metadata"' + (eager ? '' : ' loading="lazy"') + '></video>';
   return '<img class="' + (cls || 'cover') + '" src="' + esc(n.img) + '" alt="' + esc(n.title) + '"' + (eager ? '' : ' loading="lazy"') + ' decoding="async" data-fb="' + fb + '">';
+}
+function cfPreviewAdminNewsMedia(input){
+  var preview=$('#cfNewsMediaPreview'),file=input&&input.files&&input.files[0];
+  if(cfNewsPreviewUrl){URL.revokeObjectURL(cfNewsPreviewUrl);cfNewsPreviewUrl='';}
+  if(!preview)return;
+  preview.innerHTML='';
+  if(!file){preview.textContent='';return;}
+  var allowed=['image/jpeg','image/png','image/webp','image/gif','video/mp4'];
+  if(allowed.indexOf(file.type)<0){input.value='';preview.textContent='Выбери JPG, PNG, WebP, GIF или MP4.';toast('Допустимы фото или MP4','error');return;}
+  var max=file.type==='video/mp4'?50*1024*1024:10*1024*1024;
+  if(file.size>max){input.value='';preview.textContent=file.type==='video/mp4'?'MP4 должен быть не больше 50 МБ.':'Фото должно быть не больше 10 МБ.';toast(preview.textContent,'error');return;}
+  cfNewsPreviewUrl=URL.createObjectURL(file);
+  preview.innerHTML=(file.type==='video/mp4'?'<video controls muted playsinline style="display:block;width:min(100%,420px);max-height:220px;border-radius:12px;margin-top:8px"></video>':'<img alt="Предпросмотр фото новости" style="display:block;width:min(100%,420px);max-height:220px;object-fit:cover;border-radius:12px;margin-top:8px">')+'<span>'+esc(file.name)+' · '+cfDemoBytes(file.size)+'</span>';
+  var media=preview.querySelector(file.type==='video/mp4'?'video':'img');if(media)media.src=cfNewsPreviewUrl;
+}
+async function cfAdminPublishNews(){
+  var me=getUser(),button=$('#cfAdminNewsPublish'),status=$('#cfAdminNewsStatus'),title=($('#newsTitle')&&$('#newsTitle').value||'').trim(),description=($('#newsDesc')&&$('#newsDesc').value||'').trim(),link=($('#newsLink')&&$('#newsLink').value||'').trim(),input=$('#cfNewsMedia'),file=input&&input.files&&input.files[0];
+  if(!me||!me.founder||!cfOnlineAccount||cfOnlineAccount.role!=='founder'){toast('Публиковать новости может только владелец онлайн-аккаунта','error');return;}
+  if(!cfSupabaseClient||!cfSupabaseClient.storage){toast('Облачное хранилище недоступно','error');return;}
+  if(!title||!description){toast('Заполни заголовок и описание новости','error');return;}
+  if(link&&!/^https:\/\//i.test(link)){toast('Ссылка должна начинаться с https://','error');return;}
+  if(file){var allowed=['image/jpeg','image/png','image/webp','image/gif','video/mp4'],max=file.type==='video/mp4'?50*1024*1024:10*1024*1024;if(allowed.indexOf(file.type)<0||file.size>max){toast('Выбери фото до 10 МБ или MP4 до 50 МБ','error');return;}}
+  var path='',mediaType='',uploaded=false,rpcReturnedError=false;
+  if(button)button.disabled=true;if(status)status.textContent='Публикуем…';
+  try{
+    if(file){var ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','video/mp4':'mp4'}[file.type],id=window.crypto&&crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2);path=cfOnlineAccount.id+'/'+id+'.'+ext;mediaType=file.type==='video/mp4'?'video':'image';var up=await cfSupabaseClient.storage.from('cf-news-media').upload(path,file,{contentType:file.type,cacheControl:'3600',upsert:false});if(up.error)throw up.error;uploaded=true;}
+    var published=await cfSupabaseClient.rpc('cf_owner_publish_news',{p_title:title,p_description:description,p_link:link||null,p_media_path:path||null,p_media_type:mediaType||null});
+    if(published.error){rpcReturnedError=true;throw published.error;}
+    if(status)status.textContent='Опубликовано. Новость доступна всем посетителям.';
+    $('#newsTitle').value='';$('#newsDesc').value='';$('#newsLink').value='';if(input)input.value='';
+    if(cfNewsPreviewUrl){URL.revokeObjectURL(cfNewsPreviewUrl);cfNewsPreviewUrl='';}var preview=$('#cfNewsMediaPreview');if(preview)preview.innerHTML='';
+    toast('Новость опубликована для всех','success');
+    await cfLoadOnlineNews(true);
+  }catch(e){
+    var msg=e&&e.message||'Не удалось опубликовать новость';
+    if(/bucket .*not found|bucket.*does not exist/i.test(msg))msg='Сначала выполни SQL/46_owner_news_media.sql в Supabase.';
+    else if(/function .* does not exist|Could not find the function|media_path|media_type/i.test(msg))msg='Сначала выполни SQL/46_owner_news_media.sql в Supabase.';
+    if(uploaded&&rpcReturnedError)try{await cfSupabaseClient.storage.from('cf-news-media').remove([path]);}catch(cleanupError){}
+    if(status)status.textContent=msg;toast(msg,'error');
+  }finally{if(button)button.disabled=false;}
 }
 document.addEventListener('error', function (e) {
   var t = e.target;
@@ -2569,6 +2633,7 @@ function openNews(id) {
 }
 var newsTimer = null;
 function bindNews() {
+  if(!cfOnlineNewsLoaded)cfLoadOnlineNews(false);
   clearInterval(newsTimer); newsTimer = null;
   var car = $('#newsCar');
   if (!car) return;
@@ -3142,9 +3207,37 @@ function tplAdmin() {
     '<div class="adm" id="adm" data-tab="matches"><div class="adm-tabs" role="tablist"><button type="button" class="on" data-adm-tab="matches">Матчи<em id="admTabMatchesCount"></em></button><button type="button" data-adm-tab="roles">Роли</button><button type="button" data-adm-tab="moderation">Баны / PRIME</button><button type="button" data-adm-tab="news">Новости</button></div><div class="adm-stats" id="admStats"></div>' +
     '<div data-pane="roles"><div class="cf-staff-panel"><h3>Управление ролями</h3><p class="small muted">Укажи ник, e-mail, игровой ID или UUID Supabase. Для выдачи значка спонсора сначала установи SQL/42_sponsor_badge_and_profile_customization.sql после SQL/41.</p><label for="staffNick">Ник / почта / игровой ID / UUID</label><input class="staff-target" id="staffNick" placeholder="Sonse, player@mail.com или 123456" autocomplete="off"><label for="staffRole">Роль</label><select id="staffRole"><option value="player">Игрок</option><option value="tester">Тестер</option><option value="admin">Администратор</option><option value="cooperation">Сотрудничество (синяя галочка)</option></select><label for="staffVerified">Золотая галочка подтверждения</label><select id="staffVerified"><option value="">Не менять</option><option value="true">Выдать</option><option value="false">Снять</option></select><label for="staffSponsor">Значок спонсора</label><select id="staffSponsor"><option value="">Не менять</option><option value="true">Выдать</option><option value="false">Снять</option></select><button class="btn primary" id="staffApply" type="button">Применить права на сервере</button><p class="small muted" id="staffResult"></p></div></div>' +
     '<div data-pane="matches"><div id="cfOnlineAdminMatches"><p class="small muted">Загружаем онлайн-матчи…</p></div></div>' +
-    '<div data-pane="moderation"><div class="cf-admin-tools"><h3>👑 Выдать FACEIT PRIME</h3><p class="small muted">Только владелец. Выдаёт 30 дней, без списания Stars.</p><input class="input" id="cfPrimeTarget" placeholder="Ник / игровой ID / UUID" maxlength=120><button class="btn primary" id="cfAdminPrimeGrant" type="button">Выдать PRIME на 30 дней</button><p class="small muted" id="cfAdminPrimeOut"></p></div><div class="cf-admin-tools"><h3>🛡️ Блокировка игрока</h3><p class="small muted">Срок в днях. 0 = навсегда. Нельзя заблокировать администратора или основателя.</p><input class="input" id="cfBanTarget" placeholder="Ник / игровой ID / UUID" maxlength=120><input class="input" id="cfBanDays" type="number" min="0" max="3650" value="1" placeholder="Дней"><input class="input" id="cfBanReason" placeholder="Причина блокировки" maxlength="300"><button class="btn danger" id="cfAdminBanSet" type="button">Заблокировать</button><p class="small muted" id="cfAdminBanOut"></p></div><div class="cf-admin-tools"><h3>⏱️ Ограничить запуск матчей</h3><p class="small muted">Укажи игрока, число дней и причину. 0 дней снимает ограничение; администраторов и основателя ограничить нельзя.</p><input class="input" id="cfMatchRestrictTarget" placeholder="Ник / игровой ID / UUID" maxlength="120"><input class="input" id="cfMatchRestrictDays" type="number" min="0" max="3650" value="7" placeholder="Дней"><input class="input" id="cfMatchRestrictReason" placeholder="Причина ограничения" maxlength="300"><button class="btn danger" id="cfAdminMatchRestrict" type="button">Применить ограничение</button><p class="small muted" id="cfAdminMatchRestrictOut"></p></div><div class="cf-admin-tools"><h3>🔓 Снять блокировку</h3><input class="input" id="cfUnbanTarget" placeholder="Ник / игровой ID / UUID" maxlength="120"><button class="btn" id="cfAdminUnban" type="button">Разблокировать</button><p class="small muted" id="cfAdminUnbanOut"></p></div></div>' +
+    '<div data-pane="moderation"><div class="cf-admin-tools"><h3>👑 Выдать FACEIT PRIME</h3><p class="small muted">Только владелец. Выдаёт 30 дней, без списания Stars.</p><input class="input" id="cfPrimeTarget" placeholder="Ник / игровой ID / UUID" maxlength=120><button class="btn primary" id="cfAdminPrimeGrant" type="button">Выдать PRIME на 30 дней</button><p class="small muted" id="cfAdminPrimeOut"></p></div><div class="cf-admin-tools"><h3>🛡️ Бан или запрет играть</h3><p class="small muted">Доступно администраторам и владельцу. Введи игрока и выбери тип ограничения. 0 дней — постоянный бан; для снятия запрета выбери его тип и нажми «Снять».</p><label for="cfModerationTarget">Имя игрока / игровой ID / UUID</label><input class="input" id="cfModerationTarget" placeholder="Ник игрока" maxlength="120" autocomplete="off"><label for="cfModerationType">Тип ограничения</label><select class="input" id="cfModerationType"><option value="ban">Бан аккаунта</option><option value="play">Запрет запускать матчи</option></select><label for="cfModerationDays">Срок в днях</label><input class="input" id="cfModerationDays" type="number" min="0" max="3650" value="1" inputmode="numeric"><label for="cfModerationReason">Причина</label><input class="input" id="cfModerationReason" placeholder="Укажи причину" maxlength="300"><div class="btn-row"><button class="btn danger" id="cfModerationApply" type="button">Применить</button><button class="btn" id="cfModerationRemove" type="button">Снять выбранное ограничение</button></div><p class="small muted" id="cfModerationOut" aria-live="polite"></p><p class="small muted">Администраторы и владелец защищены от банов и запрета игры. Проверка прав выполняется сервером; требуется SQL/41_player_host_and_moderation.sql.</p></div></div>' +
     '<div data-pane="news"><div id="adminBody" class="rise" style="--i:1"></div></div></div>' +
     '<p class="demo-note">' + icon('info') + '<span>Общие матчи, чат и роли сохраняются в Supabase. Старые локальные заявки, созданные до обновления, могут быть видны только в браузере, где их создавали.</span></p>';
+}
+async function cfAdminApplyModeration(remove) {
+  var me=getUser(), target=($('#cfModerationTarget')&&$('#cfModerationTarget').value||'').trim(), kind=$('#cfModerationType')&&$('#cfModerationType').value, dayValue=$('#cfModerationDays')&&$('#cfModerationDays').value, days=dayValue===''?NaN:Number(dayValue), reason=($('#cfModerationReason')&&$('#cfModerationReason').value||'').trim(), out=$('#cfModerationOut'), button=remove?$('#cfModerationRemove'):$('#cfModerationApply');
+  if(!me||!isAdmin(me)){toast('Недостаточно прав','error');return;}
+  if(!cfSupabaseClient||!cfOnlineAccount||!cfOnlineAccount.id){toast('Войди в онлайн-аккаунт Supabase','error');return;}
+  if(!target){toast('Введи имя игрока','error');return;}
+  if(kind!=='ban'&&kind!=='play'){toast('Выбери тип ограничения','error');return;}
+  if(remove&&!window.confirm(kind==='ban'?'Снять бан с '+target+'?':'Снять запрет играть для '+target+'?'))return;
+  if(!remove&&(!Number.isInteger(days)||days<0||days>3650)){toast('Укажи срок от 0 до 3650 дней','error');return;}
+  if(!remove&&kind==='play'&&days<1){toast('Запрет запуска матчей должен быть минимум на 1 день','error');return;}
+  if(!remove&&!reason){toast('Укажи причину ограничения','error');return;}
+  if(button)button.disabled=true;
+  try{
+    var r=kind==='ban'
+      ? await cfSupabaseClient.rpc('cf_admin_set_ban',{p_target:target,p_hours:remove?-1:(days===0?0:days*24),p_reason:remove?'Блокировка снята администратором':reason})
+      : await cfSupabaseClient.rpc('cf_admin_set_match_restriction',{p_target:target,p_days:remove?0:days,p_reason:remove?'':reason});
+    if(r.error)throw r.error;
+    var name=r.data&&r.data.nickname||target;
+    var message=kind==='ban'
+      ? (remove?'Бан снят: '+name:'Аккаунт заблокирован: '+name+' · '+(r.data.banned_until?new Date(r.data.banned_until).toLocaleString('ru-RU'):'навсегда'))
+      : (remove?'Запрет запуска матчей снят: '+name:'Запуск матчей запрещён: '+name+' · до '+new Date(r.data.match_restricted_until).toLocaleString('ru-RU'));
+    if(out)out.textContent=message;
+    toast(remove?'Ограничение снято':'Ограничение применено','success');
+  }catch(e){
+    var msg=e&&e.message||'Ошибка';
+    if(/function .* does not exist|Could not find the function/i.test(msg))msg='Сначала выполни SQL/41_player_host_and_moderation.sql в Supabase.';
+    if(out)out.textContent=msg;toast(msg,'error');
+  }finally{if(button)button.disabled=false;}
 }
 function bindAdmin() {
   var admEl = $('#adm'); if (admEl) admEl.addEventListener('click', function (e) { var t = e.target.closest('[data-adm-tab]'); if (!t) return; admEl.dataset.tab = t.dataset.admTab; $$('.adm-tabs button', admEl).forEach(function (b) { b.classList.toggle('on', b === t); }); });
@@ -3170,11 +3263,12 @@ function bindAdmin() {
       toast(msg, 'error');
     } finally { apply.disabled = false; apply.textContent = 'Применить права на сервере'; }
   });
-  var primeBtn=$('#cfAdminPrimeGrant'),banBtn=$('#cfAdminBanSet'),unbanBtn=$('#cfAdminUnban'),restrictBtn=$('#cfAdminMatchRestrict');
+  var primeBtn=$('#cfAdminPrimeGrant'),moderationBtn=$('#cfModerationApply'),moderationRemoveBtn=$('#cfModerationRemove');
   if(primeBtn)primeBtn.addEventListener('click',async function(){var me=getUser(),target=$('#cfPrimeTarget').value.trim(),out=$('#cfAdminPrimeOut');if(!me||!me.founder){if(out)out.textContent='Выдать PRIME может только владелец.';return;}if(!target){toast('Введи ник или ID игрока','error');return;}primeBtn.disabled=true;try{var r=await cfSupabaseClient.rpc('cf_admin_grant_prime',{p_target:target,p_days:30});if(r.error)throw r.error;if(out)out.textContent='PRIME выдан: '+(r.data.nickname||target)+' до '+new Date(r.data.prime_expires_at).toLocaleString('ru-RU');toast('FACEIT PRIME выдан на 30 дней','success');}catch(e){if(out)out.textContent=e.message||'Ошибка';toast(e.message||'Не удалось выдать PRIME. Запусти SQL v30.','error');}finally{primeBtn.disabled=false;}});
-  if(banBtn)banBtn.addEventListener('click',async function(){var target=$('#cfBanTarget').value.trim(),days=Number($('#cfBanDays').value),reason=$('#cfBanReason').value.trim(),out=$('#cfBanOut');if(!target){toast('Введи ник или ID игрока','error');return;}if(!Number.isInteger(days)||days<0||days>3650){toast('Укажи срок от 0 до 3650 дней; 0 — навсегда','error');return;}if(!reason){toast('Укажи причину блокировки','error');return;}banBtn.disabled=true;try{var r=await cfSupabaseClient.rpc('cf_admin_set_ban',{p_target:target,p_hours:days*24,p_reason:reason});if(r.error)throw r.error;if(out)out.textContent='Заблокирован: '+(r.data.nickname||target)+' · '+(r.data.banned_until?new Date(r.data.banned_until).toLocaleString('ru-RU'):'навсегда');toast('Блокировка установлена','success');}catch(e){if(out)out.textContent=e.message||'Ошибка';toast(e.message||'Не удалось установить бан. Запусти SQL/41_player_host_and_moderation.sql.','error');}finally{banBtn.disabled=false;}});
-  if(unbanBtn)unbanBtn.addEventListener('click',async function(){var target=$('#cfUnbanTarget').value.trim(),out=$('#cfAdminUnbanOut');if(!target){toast('Введи ник или ID игрока','error');return;}unbanBtn.disabled=true;try{var r=await cfSupabaseClient.rpc('cf_admin_set_ban',{p_target:target,p_hours:-1,p_reason:'Блокировка снята администратором'});if(r.error)throw r.error;if(out)out.textContent='Блокировка снята: '+(r.data.nickname||target);toast('Игрок разблокирован','success');}catch(e){if(out)out.textContent=e.message||'Ошибка';toast(e.message||'Не удалось снять бан.','error');}finally{unbanBtn.disabled=false;}});
-  if(restrictBtn)restrictBtn.addEventListener('click',async function(){var target=$('#cfMatchRestrictTarget').value.trim(),days=Number($('#cfMatchRestrictDays').value),reason=$('#cfMatchRestrictReason').value.trim(),out=$('#cfAdminMatchRestrictOut');if(!target){toast('Введи ник или ID игрока','error');return;}if(!Number.isInteger(days)||days<0||days>3650){toast('Укажи срок от 0 до 3650 дней','error');return;}if(days>0&&!reason){toast('Укажи причину ограничения','error');return;}restrictBtn.disabled=true;try{var r=await cfSupabaseClient.rpc('cf_admin_set_match_restriction',{p_target:target,p_days:days,p_reason:reason});if(r.error)throw r.error;if(out)out.textContent=days===0?'Ограничение снято: '+(r.data.nickname||target):'Запуск матчей ограничен: '+(r.data.nickname||target)+' до '+new Date(r.data.match_restricted_until).toLocaleString('ru-RU');toast(days===0?'Ограничение снято':'Запуск матчей ограничен','success');}catch(e){if(out)out.textContent=e.message||'Ошибка';toast(e.message||'Не удалось изменить ограничение. Выполни SQL/41_player_host_and_moderation.sql.','error');}finally{restrictBtn.disabled=false;}});
+
+
+  if(moderationBtn)moderationBtn.addEventListener('click',function(){cfAdminApplyModeration(false);});
+  if(moderationRemoveBtn)moderationRemoveBtn.addEventListener('click',function(){cfAdminApplyModeration(true);});
 }
 function adminMatchCard(m, me) {
   var mine = m.admin && sameNick(m.admin, me.nick), st = m.status, id = esc(m.id), body = '';
@@ -3217,7 +3311,7 @@ function renderAdmin() {
     return '<div class="msg"><span class="chip accent">Сайт</span><span style="flex:1;min-width:0">' + esc(i.text) + '</span><time>' + esc(fmtClock(i.time)) + '</time></div>';
   }).join('') : '<div class="empty" style="padding:14px"><p style="margin:0">Сообщений пока нет. Они придут, когда игрок примет найденный матч.</p></div>';
   box.innerHTML =
-    '<section class="card"><div class="card-head"><h2>Редактор новостей</h2><span class="chip accent">Локальный режим</span></div><p class="small muted" style="margin-bottom:12px">Публикации сохраняются в этом браузере. Для общего сайта подключите базу данных.</p><div class="field"><label for="newsTitle">Заголовок</label><input class="input" id="newsTitle" maxlength="100" placeholder="Заголовок новости"></div><div class="field"><label for="newsDesc">Краткое описание</label><input class="input" id="newsDesc" maxlength="240" placeholder="Короткий текст новости"></div><div class="field"><label for="newsLink">Ссылка (необязательно)</label><input class="input" id="newsLink" maxlength="500" placeholder="https://..."></div><div class="btn-row"><button class="btn primary" type="button" data-act="news-add">Опубликовать новость</button><button class="btn" type="button" data-act="news-reset">Вернуть стандартные новости</button></div></section>' +
+    (me && me.founder && cfOnlineAccount && cfOnlineAccount.role==='founder' ? '<section class="card"><div class="card-head"><h2>Редактор новостей</h2><span class="chip accent">Только владелец</span></div><p class="small muted" style="margin-bottom:12px">Опубликованные новости видны всем. Можно добавить фото или MP4. Загрузка доступна только владельцу сайта.</p><div class="field"><label for="newsTitle">Заголовок</label><input class="input" id="newsTitle" maxlength="100" placeholder="Заголовок новости"></div><div class="field"><label for="newsDesc">Краткое описание</label><input class="input" id="newsDesc" maxlength="240" placeholder="Короткий текст новости"></div><div class="field"><label for="newsLink">Ссылка (необязательно)</label><input class="input" id="newsLink" maxlength="500" placeholder="https://..."></div><div class="field"><label for="cfNewsMedia">Фото или видео MP4</label><input class="input" id="cfNewsMedia" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4"><p class="small muted">Фото до 10 МБ, видео MP4 до 50 МБ.</p><div id="cfNewsMediaPreview" class="small muted" aria-live="polite"></div></div><div class="btn-row"><button class="btn primary" type="button" id="cfAdminNewsPublish" data-act="news-add">Опубликовать новость</button></div><p class="small muted" id="cfAdminNewsStatus" aria-live="polite"></p></section>' : '<section class="card"><h2>Редактор новостей</h2><p class="small muted">Публиковать новости и загружать к ним медиа может только владелец сайта.</p></section>') +
     '<section class="card"><div class="card-head"><h2>Сообщения от сайта</h2><span class="chip gold">Администратор</span></div>' + msgs + '</section>' +
     '<h2 style="font-size:16px;margin:4px 0 12px">Активные матчи</h2>' +
     (active.length ? active.map(function (m) { return adminMatchCard(m, me); }).join('') : '<div class="card empty">' + icon('play') + '<p>Активных матчей нет. Открой вкладку «Играть» под другим аккаунтом и прими найденный матч.</p></div>') +
@@ -3317,15 +3411,8 @@ view.addEventListener('click', function (e) {
     case 'retry': if (curSec) renderSection(curSec); break;
     case 'a-take': case 'a-publish': case 'a-joined': case 'a-left': case 'a-win': case 'a-cancel':
       adminAction(t.dataset.act, t.dataset.id, t.dataset.team); break;
-    case 'news-add': {
-      var nt = $('#newsTitle'), nd = $('#newsDesc'), nl = $('#newsLink');
-      var title = nt ? nt.value.trim() : '', desc = nd ? nd.value.trim() : '', link = nl ? nl.value.trim() : '';
-      if (!title || !desc) { toast('Заполни заголовок и описание', 'error'); break; }
-      if (link && !/^https:\/\//i.test(link)) { toast('Ссылка должна начинаться с https://', 'error'); break; }
-      NEWS.unshift({ id: 'custom-' + Date.now(), tag: 'Новость', date: new Date().toLocaleDateString('ru-RU'), title: title, desc: desc, link: link || CHANNEL_URL, img: 'images/platform.jpg', body: [desc] });
-      store.set(KEYS.news, JSON.stringify(NEWS)); toast('Новость добавлена в этом браузере', 'success'); renderAdmin(); break;
-    }
-    case 'news-reset': NEWS = DEFAULT_NEWS.slice(); store.remove(KEYS.news); toast('Новости восстановлены', 'success'); renderAdmin(); break;
+    case 'news-add': cfAdminPublishNews(); break;
+    case 'news-reset': toast('Локальная публикация новостей отключена. Публиковать может только владелец онлайн-аккаунта.','error'); break;
     case 'a-readall': markAllRead(); refreshBadge(); renderAdmin(); break;
     case 'copycode': copyCode(); break;
     case 'pcancel': playerCancel(); break;
@@ -3474,7 +3561,7 @@ function openPasswordRecovery(){
 }
 var forgotBtn=document.getElementById('forgotPassword');if(forgotBtn)forgotBtn.addEventListener('click',openPasswordRecovery);
 document.addEventListener('click',function(e){if(e.target&&e.target.id==='toggleSounds'){cfSoundOn=!cfSoundOn;localStorage.setItem('cfFaceit.sounds',cfSoundOn?'on':'off');cfSyncSearchSound();toast(cfSoundOn?'Звуки включены':'Звуки выключены');if(curSec==='profile')renderSection('profile');if(cfSoundOn)cfClickSound();}});
-document.addEventListener('change',function(e){if(e.target&&e.target.id==='cfProfileBannerUpload')cfUploadProfileBanner(e.target.files&&e.target.files[0],e.target);});
+document.addEventListener('change',function(e){if(!e.target)return;if(e.target.id==='cfProfileBannerUpload')cfUploadProfileBanner(e.target.files&&e.target.files[0],e.target);if(e.target.id==='cfNewsMedia')cfPreviewAdminNewsMedia(e.target);});
 // Recovery callback is only available for a configured Supabase account.
 if(location.search.indexOf('reset-password=1')!==-1){setTimeout(function(){var client=cfSupabase();if(!client)return;openModal('<h2 id="modalTitle">Новый пароль</h2><form id="newPasswordForm"><div class="field"><label for="newPassword">Новый пароль</label><input class="input" id="newPassword" type="password" minlength="8" required autocomplete="new-password"></div><div class="field"><label for="newPassword2">Повтори пароль</label><input class="input" id="newPassword2" type="password" minlength="8" required autocomplete="new-password"></div><div class="btn-row"><button class="btn primary" type="submit">Сохранить пароль</button></div></form>',function(root){$('#newPasswordForm',root).addEventListener('submit',async function(e){e.preventDefault();var a=$('#newPassword',root).value,b=$('#newPassword2',root).value;if(a.length<8||a!==b){toast('Пароли должны совпадать и содержать минимум 8 символов','error');return;}var r=await client.auth.updateUser({password:a});if(r.error){toast(cfAuthErrorMessage(r.error,'recovery'),'error');return;}toast('Пароль онлайн-аккаунта обновлён','success');closeModal();history.replaceState({},'',location.pathname);});});},800);}
 
