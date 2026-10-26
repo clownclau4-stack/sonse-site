@@ -1,4 +1,4 @@
-const CACHE = 'cf-faceit-shell-v51-demo-authors';
+const CACHE = 'cf-faceit-shell-v52-profile-mp4-demos';
 const ASSETS = ['./icons/icon.svg', './manifest.webmanifest'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
