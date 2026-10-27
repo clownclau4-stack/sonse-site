@@ -1,4 +1,4 @@
-const CACHE = 'cf-faceit-shell-v53-admin-news-moderation';
+const CACHE = 'cf-faceit-shell-v55-admin-frame-grants';
 const ASSETS = ['./icons/icon.svg', './manifest.webmanifest'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
