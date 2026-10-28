@@ -1,5 +1,5 @@
-const CACHE = 'cf-faceit-shell-v56-profile-banners';
-const ASSETS = ['./icons/icon.svg', './manifest.webmanifest'];
+const CACHE = 'cf-faceit-shell-v57-online-modules';
+const ASSETS = ['./icons/icon.svg', './manifest.webmanifest', './css/site.css', './js/config.js', './js/app.js'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
 });

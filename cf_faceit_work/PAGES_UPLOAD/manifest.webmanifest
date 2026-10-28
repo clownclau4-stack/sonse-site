@@ -1,0 +1,13 @@
+{
+  "name": "CF FACEIT",
+  "short_name": "CF FACEIT",
+  "description": "Неофициальный фан-прототип соревновательной платформы CounterFlame",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101010",
+  "theme_color": "#101010",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
