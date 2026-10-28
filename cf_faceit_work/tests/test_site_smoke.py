@@ -9,6 +9,8 @@ SITE = REPO / "PAGES_UPLOAD"
 APP = SITE / "js" / "app.js"
 CONFIG = SITE / "js" / "config.js"
 SQL = REPO / "SQL" / "49_online_tournaments.sql"
+ELO_SQL = REPO / "SQL" / "50_skill_based_elo_and_ai_review.sql"
+AI_FUNCTION = REPO / "supabase" / "functions" / "cf-score-ai" / "index.ts"
 
 
 class LocalAssets(html.parser.HTMLParser):
@@ -70,6 +72,31 @@ class SiteSmokeTests(unittest.TestCase):
         self.assertNotIn("grant select on public.cf_tournaments", sql)
         self.assertIn("name is null or char_length(btrim(name))", sql)
         self.assertIn("v_total >= v_tournament.max_players", sql)
+
+    def test_skill_elo_is_zero_sum_and_ai_cannot_award(self):
+        sql = ELO_SQL.read_text(encoding="utf-8")
+        app = APP.read_text(encoding="utf-8")
+        self.assertIn("round(32.0 * (v_actual_a - v_expected_a))", sql)
+        self.assertIn("if p_auto is distinct from false", sql)
+        self.assertIn("grant execute on function public.cf_ai_apply_result", sql)
+        self.assertIn("to service_role", sql)
+        self.assertIn("cf_ai_review_claim", sql)
+        self.assertIn("attempts between 0 and 3", sql)
+        self.assertNotIn("perform public.cf_apply_match_result(p_match, v_winner", sql)
+        self.assertNotIn("ai.applied", app)
+        self.assertIn("ELO изменится только после подтверждения", app)
+        self.assertNotIn("от +40 до +65", app)
+
+    def test_ai_function_authenticates_user_bounds_image_and_checks_origin(self):
+        source = AI_FUNCTION.read_text(encoding="utf-8")
+        self.assertIn("auth.getUser(token)", source)
+        self.assertIn("cf_ai_review_claim", source)
+        self.assertIn("MAX_IMAGE_BYTES = 5_000_000", source)
+        self.assertIn("parsedImageUrl.origin !== parsedProjectUrl.origin", source)
+        self.assertIn("matchesImageSignature(image, mime)", source)
+        self.assertIn("AbortSignal.timeout", source)
+        self.assertIn("SUPABASE_SERVICE_ROLE_KEY", source)
+        self.assertNotIn("service_role key value", source)
 
     def test_founder_setup_requires_verified_uuid(self):
         sql = (REPO / "supabase-founder-admin-setup.sql").read_text(encoding="utf-8")
