@@ -662,11 +662,18 @@ img.cover{object-fit:cover}
 .cf-v9-team-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:12px}
 .cf-v9-team-head strong{font-size:12px;letter-spacing:.09em}.cf-v9-team-head span{font-size:10px;color:#b7b8be;background:#ffffff0b;padding:4px 7px;border-radius:7px}
 .cf-v9-players{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px 4px}
+.cf-v9-team.is-duo .cf-v9-players{grid-template-columns:repeat(2,minmax(0,1fr));justify-items:center}
 .cf-v9-player{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;text-align:center;animation:cfV9PlayerIn .36s cubic-bezier(.2,.8,.25,1) both;animation-delay:calc(var(--pi,0)*35ms)}
 .cf-v9-player .avatar{--s:clamp(34px,5.5vw,52px)!important;width:var(--s);height:var(--s);font-size:18px;border:2px solid #ff783b;box-shadow:0 0 0 4px #ff783b13,0 5px 18px #0005}
 .cf-v9-team.blue .cf-v9-player .avatar{border-color:#60a5fa;box-shadow:0 0 0 4px #60a5fa13,0 5px 18px #0005}
 .cf-v9-player b{display:block;width:100%;font-size:clamp(9px,1.3vw,12px);font-weight:750;overflow-wrap:anywhere;line-height:1.2;max-width:100%}
 .cf-v9-player small{font-size:9px;color:#8f929a}
+.cf-v9-player .avatar{transition:filter .24s ease,border-color .24s ease,box-shadow .24s ease}
+.cf-v9-player.is-pending .avatar{filter:grayscale(.72) brightness(.58) saturate(.72)}
+.cf-v9-team .cf-v9-player.is-accepted .avatar{filter:brightness(1.06) saturate(1.12);border-color:#39df83;box-shadow:0 0 0 4px #39df8324,0 0 20px #27d97755,0 5px 18px #0005}
+.cf-v9-ready-state{font-size:9px;font-weight:800;color:#a8abb2;line-height:1.1}
+.cf-v9-player.is-pending .cf-v9-ready-state{color:#a8abb2}
+.cf-v9-player.is-accepted .cf-v9-ready-state{color:#65efa2;text-shadow:0 0 10px #39df8355}
 .cf-v9-vs{align-self:center;justify-self:center;font-size:21px;font-style:italic;font-weight:1000;color:#ff8b52;text-shadow:0 0 25px #ff5b1c50;letter-spacing:-.08em}
 .cf-v9-progress{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid #ffffff10;padding-top:14px;margin-top:8px;font-size:12px;color:#afb0b5}
 .cf-v9-clock{font-size:23px;font-weight:950;letter-spacing:.04em;font-variant-numeric:tabular-nums;color:#fff}
@@ -675,6 +682,10 @@ img.cover{object-fit:cover}
 .cf-v9-btn:hover{transform:translateY(-2px);filter:brightness(1.12)}
 .cf-v9-btn:active{transform:translateY(0) scale(.985)}
 .cf-v9-btn.primary{border-color:#ff742f;background:linear-gradient(115deg,#ff762f,#e44910);box-shadow:0 8px 22px #f05a2028;color:#fff}
+.cf-v9-btn.cf-v9-accept{position:relative;isolation:isolate;overflow:hidden;border-color:#55e89190;background:linear-gradient(110deg,#08763a,#10a953,#27d875,#10a953,#08763a);background-size:220% 100%;box-shadow:0 8px 24px #16c96842,inset 0 1px 0 #ffffff35;color:#fff;text-shadow:0 1px 2px #003018;animation:cfV9AcceptShimmer 2.8s ease-in-out infinite}
+.cf-v9-btn.cf-v9-accept::after{content:"";position:absolute;inset:-40% auto -40% -38%;width:30%;transform:translateX(-240%) skewX(-20deg);background:linear-gradient(90deg,transparent,#ffffff70,transparent);animation:cfV9AcceptSweep 2.8s ease-in-out infinite;pointer-events:none}
+.cf-v9-btn.cf-v9-accept span{position:relative;z-index:1}
+.cf-v9-btn.cf-v9-accept:focus-visible{outline:3px solid #8dffba;outline-offset:3px}
 .cf-v9-btn.blue{border-color:#5aa7ff60;background:linear-gradient(120deg,#246cb8,#174a81);color:#fff}
 .cf-v9-btn.danger{border-color:#fb666646;color:#ffaaa6}
 .cf-v9-btn.wide{grid-column:1/-1}
@@ -699,6 +710,8 @@ img.cover{object-fit:cover}
 @keyframes cfV9Backdrop{from{opacity:0}to{opacity:1}}
 @keyframes cfV9DialogIn{from{opacity:0;transform:translateY(23px) scale(.975);filter:blur(4px)}to{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}}
 @keyframes cfV9PlayerIn{from{opacity:0;transform:translateY(8px) scale(.92)}to{opacity:1;transform:none}}
+@keyframes cfV9AcceptShimmer{0%,100%{background-position:0% 50%;filter:saturate(1)}50%{background-position:100% 50%;filter:saturate(1.2)}}
+@keyframes cfV9AcceptSweep{0%,38%{transform:translateX(-240%) skewX(-20deg);opacity:0}48%{opacity:1}75%,100%{transform:translateX(500%) skewX(-20deg);opacity:0}}
 @keyframes cfV9Pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.72)}}
 @keyframes cfV9Queue{0%,100%{box-shadow:0 0 0 0 #ff762f00;transform:scale(1)}50%{box-shadow:0 0 0 9px #ff762f0c;transform:scale(1.04)}}
 @media(max-width:620px){
@@ -713,7 +726,7 @@ img.cover{object-fit:cover}
  .cf-v9-map img{width:65px;height:44px}.cf-v9-inline-roster{grid-template-columns:1fr;gap:8px}
  .cf-v9-inline-roster .cf-v9-team-head{flex-direction:row;align-items:center}.cf-v9-inline-roster .cf-v9-player .avatar{--s:36px!important}
 }
-@media(prefers-reduced-motion:reduce){.cf-v9-dialog,.cf-v9-backdrop,.cf-v9-player,.cf-v9-dot,.cf-v9-queue-orb{animation:none!important}}
+@media(prefers-reduced-motion:reduce){.cf-v9-dialog,.cf-v9-backdrop,.cf-v9-player,.cf-v9-dot,.cf-v9-queue-orb,.cf-v9-btn.cf-v9-accept,.cf-v9-btn.cf-v9-accept::after{animation:none!important;transition:none!important}}
 
 
 /* Tournaments v11 */
