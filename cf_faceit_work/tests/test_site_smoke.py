@@ -116,6 +116,25 @@ class SiteSmokeTests(unittest.TestCase):
         self.assertLess(notice, cancellation)
         self.assertIn("SQL/51_cancel_reviewed_matches.sql", (REPO / "INSTALL_RU.md").read_text(encoding="utf-8"))
 
+    def test_found_match_roster_tracks_server_acceptance_and_uses_accessible_green_cta(self):
+        app = APP.read_text(encoding="utf-8")
+        css = (SITE / "css" / "site.css").read_text(encoding="utf-8")
+        self.assertIn("function cfV9AcceptanceSignature(mt)", app)
+        self.assertIn("function cfV9Player(p,i,acceptedBy,showAcceptance)", app)
+        self.assertIn("acceptedBy.indexOf(id)>=0", app)
+        self.assertIn("cfV9Roster(mt,false,true)", app)
+        self.assertIn("cfV9Roster(mt,true,true)", app)
+        self.assertIn("team.length<=2?'is-duo':'')", app)
+        self.assertIn(".cf-v9-team.is-duo .cf-v9-players{grid-template-columns:repeat(2,minmax(0,1fr))", css)
+        self.assertIn("cfV9State.foundSignature!==signature", app)
+        self.assertIn('class="cf-v9-btn cf-v9-accept"', app)
+        self.assertIn(".cf-v9-player.is-pending .avatar", css)
+        self.assertIn(".cf-v9-team .cf-v9-player.is-accepted .avatar", css)
+        self.assertIn("@keyframes cfV9AcceptShimmer", css)
+        self.assertIn("@keyframes cfV9AcceptSweep", css)
+        self.assertIn(".cf-v9-btn.cf-v9-accept::after", css)
+        self.assertIn(".cf-v9-btn.cf-v9-accept,.cf-v9-btn.cf-v9-accept::after{animation:none!important", css)
+
     def test_ai_function_authenticates_user_bounds_image_and_checks_origin(self):
         source = AI_FUNCTION.read_text(encoding="utf-8")
         self.assertIn("auth.getUser(token)", source)
