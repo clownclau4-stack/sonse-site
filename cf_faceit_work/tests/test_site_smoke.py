@@ -10,6 +10,7 @@ APP = SITE / "js" / "app.js"
 CONFIG = SITE / "js" / "config.js"
 SQL = REPO / "SQL" / "49_online_tournaments.sql"
 ELO_SQL = REPO / "SQL" / "50_skill_based_elo_and_ai_review.sql"
+CANCEL_REVIEW_SQL = REPO / "SQL" / "51_cancel_reviewed_matches.sql"
 AI_FUNCTION = REPO / "supabase" / "functions" / "cf-score-ai" / "index.ts"
 
 
@@ -86,6 +87,34 @@ class SiteSmokeTests(unittest.TestCase):
         self.assertNotIn("ai.applied", app)
         self.assertIn("ELO изменится только после подтверждения", app)
         self.assertNotIn("от +40 до +65", app)
+
+    def test_admin_can_cancel_pending_results_with_reason_and_private_support_notices(self):
+        sql = CANCEL_REVIEW_SQL.read_text(encoding="utf-8")
+        app = APP.read_text(encoding="utf-8")
+        self.assertIn('data-online-admin="cancelResult"', app)
+        self.assertIn('id="cfAdminCancelReason" name="reason" rows="4" minlength="5" maxlength="500" required', app)
+        self.assertIn("rpc('cf_lobby_match_cancel_review'", app)
+        self.assertIn("p_reason:cancelReason", app)
+        self.assertIn("create or replace function public.cf_lobby_match_admin_action", sql)
+        self.assertIn("if v_match.status = 'result_pending' then", sql)
+        self.assertIn("if coalesce(v_role, 'player') not in ('admin', 'founder')", sql)
+        self.assertIn("char_length(v_reason) < 5 or char_length(v_reason) > 500", sql)
+        self.assertIn("if v_match.status <> 'result_pending' then", sql)
+        self.assertIn("if v_match.status = 'cancelled' then", sql)
+        self.assertIn("public.msgr_support_ensure(v_player)", sql)
+        self.assertIn("insert into public.msgr_messages (chat_id, user_id, body, is_bot)", sql)
+        self.assertIn("'Поддержка: ваш матч отменён администрацией после проверки результата. Причина: '", sql)
+        self.assertIn("revoke all on function public.cf_lobby_match_cancel_review(uuid, text) from public, anon", sql)
+        self.assertIn("grant execute on function public.cf_lobby_match_cancel_review(uuid, text) to authenticated", sql)
+        self.assertIn("'already_cancelled', true", sql)
+        self.assertNotIn("cf_apply_match_result", sql)
+        review_function = sql.index("create or replace function public.cf_lobby_match_cancel_review")
+        lock = sql.index("for update;", review_function)
+        notice = sql.index("insert into public.msgr_messages", review_function)
+        cancellation = sql.index("where m.id = p_match and m.status = 'result_pending';", review_function)
+        self.assertLess(lock, notice)
+        self.assertLess(notice, cancellation)
+        self.assertIn("SQL/51_cancel_reviewed_matches.sql", (REPO / "INSTALL_RU.md").read_text(encoding="utf-8"))
 
     def test_ai_function_authenticates_user_bounds_image_and_checks_origin(self):
         source = AI_FUNCTION.read_text(encoding="utf-8")
