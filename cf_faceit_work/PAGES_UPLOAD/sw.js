@@ -1,4 +1,4 @@
-const CACHE = 'cf-faceit-shell-v58-skill-elo-review';
+const CACHE = 'cf-faceit-shell-v59-admin-cancel-review';
 const ASSETS = ['./icons/icon.svg', './manifest.webmanifest', './css/site.css', './js/config.js', './js/app.js'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
