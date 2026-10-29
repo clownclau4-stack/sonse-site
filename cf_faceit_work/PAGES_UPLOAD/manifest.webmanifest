@@ -1,12 +1,12 @@
 {
-  "name": "CF FACEIT",
-  "short_name": "CF FACEIT",
-  "description": "Неофициальный фан-прототип соревновательной платформы CounterFlame",
+  "name": "LX FACEIT",
+  "short_name": "LX FACEIT",
+  "description": "Интерфейс рейтинговой платформы Standoff 2 для проекта LX FACEIT",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#101010",
-  "theme_color": "#101010",
+  "background_color": "#0b1010",
+  "theme_color": "#0b1010",
   "icons": [
     { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]
