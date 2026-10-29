@@ -1,3 +1,3 @@
-/* Dedicated LX FACEIT project settings. Keep empty until its Supabase project is ready; never expose server credentials here. */
+/* LX FACEIT Standoff 2: set the URL and public anon/publishable key of the dedicated LX project. Never put a service_role/secret key here. */
 window.LX_SUPABASE_URL = window.LX_SUPABASE_URL || '';
 window.LX_SUPABASE_ANON_KEY = window.LX_SUPABASE_ANON_KEY || '';
