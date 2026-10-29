@@ -4,6 +4,7 @@ import re
 import unittest
 from pathlib import Path
 from urllib.parse import urlsplit
+from zipfile import ZipFile
 
 REPO = Path(__file__).resolve().parents[1]
 SITE = REPO / "PAGES_UPLOAD"
@@ -12,6 +13,10 @@ CONFIG = SITE / "js" / "config.js"
 THEME = SITE / "css" / "lx-theme.css"
 MAP_SQL = REPO / "SQL" / "52_lx_standoff2_maps_and_ids.sql"
 FOUNDER_SQL = REPO / "SQL" / "53_lx_founder_bootstrap.sql"
+BUNDLE = REPO / "LX_FACEIT_STANDOFF2"
+BUNDLE_SITE = BUNDLE / "PAGES_UPLOAD"
+BUNDLE_SQL = BUNDLE / "SQL" / "LX_FACEIT_FULL_SETUP.sql"
+BUNDLE_ZIP = REPO / "LX_FACEIT_STANDOFF2_full.zip"
 
 
 class LocalAssets(html.parser.HTMLParser):
@@ -114,6 +119,43 @@ class SiteSmokeTests(unittest.TestCase):
         self.assertNotRegex(founder_sql.lower(), r"where\s+lower\(nickname\)")
         self.assertNotRegex(founder_sql.lower(), r"password\s*=")
         self.assertNotIn("encrypted_password", founder_sql.lower())
+
+    def test_complete_lx_bundle_has_site_database_and_login_function(self):
+        self.assertTrue((BUNDLE_SITE / "index.html").is_file())
+        self.assertTrue((BUNDLE_SITE / "css" / "site.css").is_file())
+        self.assertTrue((BUNDLE_SITE / "css" / "lx-theme.css").is_file())
+        self.assertTrue((BUNDLE_SITE / "js" / "app.js").is_file())
+        self.assertTrue((BUNDLE_SITE / "js" / "config.js").is_file())
+        self.assertTrue((BUNDLE / "supabase" / "functions" / "login-by-nickname" / "index.ts").is_file())
+        function_source = "\n".join(path.read_text(encoding="utf-8") for path in (BUNDLE / "supabase" / "functions").rglob("*.ts"))
+        self.assertNotIn("CF FACEIT", function_source)
+        self.assertNotIn("CounterFlame", function_source)
+        for relative in ("js/app.js", "js/config.js", "css/site.css", "css/lx-theme.css", "index.html"):
+            self.assertEqual((SITE / relative).read_bytes(), (BUNDLE_SITE / relative).read_bytes(), relative)
+        self.assertTrue(BUNDLE_SQL.is_file())
+        with ZipFile(BUNDLE_ZIP) as archive:
+            roots = {name.split("/", 1)[0] for name in archive.namelist() if not name.endswith("/")}
+            self.assertEqual(roots, {"LX_FACEIT_STANDOFF2"})
+            self.assertIn("LX_FACEIT_STANDOFF2/SQL/LX_FACEIT_FULL_SETUP.sql", archive.namelist())
+
+    def test_full_setup_contains_baseline_before_lx_maps_and_avoids_data_purge(self):
+        sql = BUNDLE_SQL.read_text(encoding="utf-8")
+        sql_lower = sql.lower()
+        self.assertLess(sql_lower.index("create table if not exists public.profiles"), sql_lower.index("included source: 52_lx_standoff2_maps_and_ids.sql"))
+        for required in (
+            "create table if not exists public.cf_matchmaking_queue",
+            "create table if not exists public.cf_tournaments",
+            "cf_auth_check_registration(text,text)",
+            "cf_lobby_match_start(text,text)",
+            "sandstone",
+            "pyramid",
+            "6,16",
+            "lx faceit standoff 2 full schema installed",
+        ):
+            self.assertIn(required, sql_lower)
+        self.assertNotIn("drop table if exists public.cf_matchmaking_queue cascade", sql_lower)
+        self.assertNotIn("delete from public.cf_lobby_matches;", sql_lower)
+        self.assertNotIn("Dominus", sql)
 
 
 if __name__ == "__main__":
