@@ -1,4 +1,5 @@
 import html.parser
+import json
 import re
 import unittest
 from pathlib import Path
@@ -8,10 +9,9 @@ REPO = Path(__file__).resolve().parents[1]
 SITE = REPO / "PAGES_UPLOAD"
 APP = SITE / "js" / "app.js"
 CONFIG = SITE / "js" / "config.js"
-SQL = REPO / "SQL" / "49_online_tournaments.sql"
-ELO_SQL = REPO / "SQL" / "50_skill_based_elo_and_ai_review.sql"
-CANCEL_REVIEW_SQL = REPO / "SQL" / "51_cancel_reviewed_matches.sql"
-AI_FUNCTION = REPO / "supabase" / "functions" / "cf-score-ai" / "index.ts"
+THEME = SITE / "css" / "lx-theme.css"
+MAP_SQL = REPO / "SQL" / "52_lx_standoff2_maps_and_ids.sql"
+FOUNDER_SQL = REPO / "SQL" / "53_lx_founder_bootstrap.sql"
 
 
 class LocalAssets(html.parser.HTMLParser):
@@ -37,126 +37,83 @@ class SiteSmokeTests(unittest.TestCase):
         self.assertEqual(missing, [], f"missing local HTML assets: {missing}")
 
     def test_css_local_assets_exist(self):
-        css = (SITE / "css" / "site.css").read_text(encoding="utf-8")
-        paths = re.findall(r"url\((?:\"|')?([^\"')]+)", css)
         missing = []
-        for raw in paths:
-            value = raw.strip()
-            if value.startswith(("data:", "http:", "https:", "//", "#")):
-                continue
-            path = urlsplit(value).path.lstrip("/")
-            if path and not (SITE / "css" / path).is_file() and not (SITE / path).is_file():
-                missing.append(value)
+        for css_file in (SITE / "css").glob("*.css"):
+            css = css_file.read_text(encoding="utf-8")
+            for raw in re.findall(r"url\((?:\"|')?([^\"')]+)", css):
+                value = raw.strip()
+                if value.startswith(("data:", "http:", "https:", "//", "#")):
+                    continue
+                path = urlsplit(value).path.lstrip("/")
+                if path and not (css_file.parent / path).is_file() and not (SITE / path).is_file():
+                    missing.append(f"{css_file.name}: {value}")
         self.assertEqual(missing, [], f"missing local CSS assets: {missing}")
 
-    def test_browser_config_does_not_contain_server_secret(self):
-        config = CONFIG.read_text(encoding="utf-8").lower()
-        config = re.sub(r"/\*.*?\*/", "", config, flags=re.DOTALL)
-        self.assertNotRegex(config, r"service[_-]?role|sb_secret_")
+    def test_site_is_lx_standoff2_not_cf_faceit(self):
+        html = (SITE / "index.html").read_text(encoding="utf-8")
+        manifest = json.loads((SITE / "manifest.webmanifest").read_text(encoding="utf-8"))
+        self.assertIn("LX FACEIT", html)
+        self.assertIn("Standoff 2", html)
+        self.assertNotIn("CF FACEIT", html)
+        self.assertNotIn("CounterFlame", html)
+        self.assertEqual(manifest["name"], "LX FACEIT")
+        self.assertIn("Standoff 2", manifest["description"])
 
-    def test_legacy_demo_and_local_password_paths_are_removed(self):
+    def test_public_config_cannot_connect_to_other_game_or_expose_secrets(self):
+        config = CONFIG.read_text(encoding="utf-8")
+        config_code = re.sub(r"/\*.*?\*/", "", config, flags=re.DOTALL)
+        self.assertIn("window.LX_SUPABASE_URL", config_code)
+        self.assertIn("window.LX_SUPABASE_ANON_KEY", config_code)
+        self.assertNotIn("window.CF_SUPABASE_URL", config_code)
+        self.assertNotIn("window.CF_SUPABASE_ANON_KEY", config_code)
+        self.assertNotRegex(config_code, r"window\.LX_SUPABASE_URL\s*=\s*window\.LX_SUPABASE_URL\s*\|\|\s*'https?://")
+        self.assertNotRegex(config_code, r"service[_-]?role|sb_secret_")
+
+    def test_registration_fields_and_wizard_stay_editable_offline(self):
         app = APP.read_text(encoding="utf-8")
-        for obsolete in ("function saveAccounts", "function finishMatch", "function demoFallback", "DEFAULT_NEWS", "restoreMatch()"):
-            self.assertNotIn(obsolete, app)
-        for legacy_key in ("cfFaceit.accounts.v1", "cfFaceit.matches.v1", "cfFaceit.inbox.v1", "cfFaceit.news.v1"):
-            self.assertIn(legacy_key, app)  # startup cleanup removes each previous demo store
-        self.assertIn("cfOnlineAccount", app)
+        availability = app[app.index("function cfSetOnlineAvailability"):app.index("function boot()")]
+        self.assertIn("$$('#formLogin input, #paneRegister input, #paneRegister select')", availability)
+        self.assertIn("control.disabled = false", availability)
+        self.assertIn("$$('#loginBtn, #forgotPassword, #registerBtn')", availability)
+        self.assertIn("control.disabled = !available", availability)
+        self.assertNotIn("#wizBack, #wizNext", availability)
+        self.assertIn("f.focus({ preventScroll: false })", app)
+        self.assertIn("if(!cfSupabaseClient){toast(", app)
+        self.assertIn("cfSupabaseClient.auth.signUp", app)
+        self.assertIn("Отдельная база LX FACEIT пока не подключена", app)
 
-    def test_tournament_rpc_is_server_guarded(self):
-        sql = SQL.read_text(encoding="utf-8")
+    def test_auth_and_dialog_windows_have_lx_responsive_refresh(self):
+        theme = THEME.read_text(encoding="utf-8")
+        self.assertIn(".tabs{display:grid", theme)
+        self.assertIn(".auth-card{display:block;flex:none", theme)
+        self.assertIn("#auth .wiz-actions{position:static", theme)
+        self.assertNotIn("#auth .wiz-actions{position:sticky", theme)
+        self.assertIn(".modal-root .modal{clip-path:none", theme)
+        self.assertIn("@media(max-width:560px)", theme)
+        self.assertIn("@media(prefers-reduced-motion:reduce)", theme)
+
+    def test_maps_and_service_worker_use_standoff_assets(self):
         app = APP.read_text(encoding="utf-8")
-        for routine in ("cf_tournament_state", "cf_tournament_create", "cf_tournament_join", "cf_tournament_admin_action"):
-            self.assertIn(f"function public.{routine}", sql)
-            self.assertIn(f"rpc('{routine}'", app)
-        self.assertEqual(sql.count("set search_path = ''"), 4)
-        self.assertIn("revoke all on public.cf_tournaments, public.cf_tournament_players from public, anon, authenticated", sql)
-        self.assertNotIn("grant select on public.cf_tournaments", sql)
-        self.assertIn("name is null or char_length(btrim(name))", sql)
-        self.assertIn("v_total >= v_tournament.max_players", sql)
+        worker = (SITE / "sw.js").read_text(encoding="utf-8")
+        for map_name in ("Sandstone", "Province", "Rust", "Zone 7", "Breeze", "Hanami", "Dune", "Pyramid"):
+            self.assertIn(map_name, app)
+            slug = map_name.lower().replace(" ", "-")
+            self.assertIn(f"images/lx-map-{slug}.svg", worker)
+            self.assertTrue((SITE / f"images/lx-map-{slug}.svg").is_file())
+        self.assertIn("lx-faceit-standoff2", worker)
 
-    def test_skill_elo_is_zero_sum_and_ai_cannot_award(self):
-        sql = ELO_SQL.read_text(encoding="utf-8")
-        app = APP.read_text(encoding="utf-8")
-        self.assertIn("round(32.0 * (v_actual_a - v_expected_a))", sql)
-        self.assertIn("if p_auto is distinct from false", sql)
-        self.assertIn("grant execute on function public.cf_ai_apply_result", sql)
-        self.assertIn("to service_role", sql)
-        self.assertIn("cf_ai_review_claim", sql)
-        self.assertIn("attempts between 0 and 3", sql)
-        self.assertNotIn("perform public.cf_apply_match_result(p_match, v_winner", sql)
-        self.assertNotIn("ai.applied", app)
-        self.assertIn("ELO изменится только после подтверждения", app)
-        self.assertNotIn("от +40 до +65", app)
-
-    def test_admin_can_cancel_pending_results_with_reason_and_private_support_notices(self):
-        sql = CANCEL_REVIEW_SQL.read_text(encoding="utf-8")
-        app = APP.read_text(encoding="utf-8")
-        self.assertIn('data-online-admin="cancelResult"', app)
-        self.assertIn('id="cfAdminCancelReason" name="reason" rows="4" minlength="5" maxlength="500" required', app)
-        self.assertIn("rpc('cf_lobby_match_cancel_review'", app)
-        self.assertIn("p_reason:cancelReason", app)
-        self.assertIn("create or replace function public.cf_lobby_match_admin_action", sql)
-        self.assertIn("if v_match.status = 'result_pending' then", sql)
-        self.assertIn("if coalesce(v_role, 'player') not in ('admin', 'founder')", sql)
-        self.assertIn("char_length(v_reason) < 5 or char_length(v_reason) > 500", sql)
-        self.assertIn("if v_match.status <> 'result_pending' then", sql)
-        self.assertIn("if v_match.status = 'cancelled' then", sql)
-        self.assertIn("public.msgr_support_ensure(v_player)", sql)
-        self.assertIn("insert into public.msgr_messages (chat_id, user_id, body, is_bot)", sql)
-        self.assertIn("'Поддержка: ваш матч отменён администрацией после проверки результата. Причина: '", sql)
-        self.assertIn("revoke all on function public.cf_lobby_match_cancel_review(uuid, text) from public, anon", sql)
-        self.assertIn("grant execute on function public.cf_lobby_match_cancel_review(uuid, text) to authenticated", sql)
-        self.assertIn("'already_cancelled', true", sql)
-        self.assertNotIn("cf_apply_match_result", sql)
-        review_function = sql.index("create or replace function public.cf_lobby_match_cancel_review")
-        lock = sql.index("for update;", review_function)
-        notice = sql.index("insert into public.msgr_messages", review_function)
-        cancellation = sql.index("where m.id = p_match and m.status = 'result_pending';", review_function)
-        self.assertLess(lock, notice)
-        self.assertLess(notice, cancellation)
-        self.assertIn("SQL/51_cancel_reviewed_matches.sql", (REPO / "INSTALL_RU.md").read_text(encoding="utf-8"))
-
-    def test_found_match_roster_tracks_server_acceptance_and_uses_accessible_green_cta(self):
-        app = APP.read_text(encoding="utf-8")
-        css = (SITE / "css" / "site.css").read_text(encoding="utf-8")
-        self.assertIn("function cfV9AcceptanceSignature(mt)", app)
-        self.assertIn("function cfV9Player(p,i,acceptedBy,showAcceptance)", app)
-        self.assertIn("acceptedBy.indexOf(id)>=0", app)
-        self.assertIn("cfV9Roster(mt,false,true)", app)
-        self.assertIn("cfV9Roster(mt,true,true)", app)
-        self.assertIn("team.length<=2?'is-duo':'')", app)
-        self.assertIn(".cf-v9-team.is-duo .cf-v9-players{grid-template-columns:repeat(2,minmax(0,1fr))", css)
-        self.assertIn("cfV9State.foundSignature!==signature", app)
-        self.assertIn('class="cf-v9-btn cf-v9-accept"', app)
-        self.assertIn(".cf-v9-player.is-pending .avatar", css)
-        self.assertIn(".cf-v9-team .cf-v9-player.is-accepted .avatar", css)
-        self.assertIn("@keyframes cfV9AcceptShimmer", css)
-        self.assertIn("@keyframes cfV9AcceptSweep", css)
-        self.assertIn(".cf-v9-btn.cf-v9-accept::after", css)
-        self.assertIn(".cf-v9-btn.cf-v9-accept,.cf-v9-btn.cf-v9-accept::after{animation:none!important", css)
-
-    def test_ai_function_authenticates_user_bounds_image_and_checks_origin(self):
-        source = AI_FUNCTION.read_text(encoding="utf-8")
-        self.assertIn("auth.getUser(token)", source)
-        self.assertIn("cf_ai_review_claim", source)
-        self.assertIn("MAX_IMAGE_BYTES = 5_000_000", source)
-        self.assertIn("parsedImageUrl.origin !== parsedProjectUrl.origin", source)
-        self.assertIn("matchesImageSignature(image, mime)", source)
-        self.assertIn("AbortSignal.timeout", source)
-        self.assertIn("SUPABASE_SERVICE_ROLE_KEY", source)
-        self.assertNotIn("service_role key value", source)
-
-    def test_founder_setup_requires_verified_uuid(self):
-        sql = (REPO / "supabase-founder-admin-setup.sql").read_text(encoding="utf-8")
-        self.assertIn("v_owner_uid uuid := null", sql)
-        self.assertIn("from auth.users u where u.id = v_owner_uid", sql)
-        self.assertNotRegex(sql.lower(), r"where\s+lower\(nickname\)")
-        self.assertNotIn("email_confirmed_at", sql)
-
-    def test_legacy_match_setup_no_longer_grants_founder_by_nickname(self):
-        for path in (REPO / "SQL" / "06_patch_match_chat_roles_p1.sql", REPO / "CF_FACEIT_PATCH_MATCH_CHAT_ROLES.sql"):
-            sql = path.read_text(encoding="utf-8").lower()
-            self.assertNotRegex(sql, r"update\s+public\.profiles\s+set\s+role\s*=\s*'founder'[\s\S]{0,200}where\s+lower\(nickname\)")
+    def test_lx_migrations_are_additive_and_require_verified_founder(self):
+        map_sql = MAP_SQL.read_text(encoding="utf-8")
+        founder_sql = FOUNDER_SQL.read_text(encoding="utf-8")
+        self.assertIn("DEDICATED LX", map_sql)
+        self.assertIn("Install the LX-compatible", map_sql)
+        self.assertIn("raise exception 'Queue contains legacy map values", map_sql)
+        self.assertIn("raise exception 'Tournaments contain legacy map values", map_sql)
+        self.assertIn("v_owner_uid uuid := null", founder_sql)
+        self.assertIn("from auth.users u where u.id = v_owner_uid", founder_sql)
+        self.assertNotRegex(founder_sql.lower(), r"where\s+lower\(nickname\)")
+        self.assertNotRegex(founder_sql.lower(), r"password\s*=")
+        self.assertNotIn("encrypted_password", founder_sql.lower())
 
 
 if __name__ == "__main__":

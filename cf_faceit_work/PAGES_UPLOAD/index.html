@@ -3,24 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#101010">
+<meta name="theme-color" content="#101311">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Tektur:wght@500;600;700&display=swap"><link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="description" content="CF FACEIT — неофициальная фан-платформа для соревновательных матчей CounterFlame.">
-<title>CF FACEIT</title>
+<meta name="description" content="LX FACEIT — неофициальная фан-платформа для соревновательных матчей Standoff 2.">
+<title>LX FACEIT</title>
 <link rel="stylesheet" href="./css/site.css">
+<link rel="stylesheet" href="./css/lx-theme.css">
 </head>
 <body>
 
-<noscript><p style="padding:24px;font-family:sans-serif">Для работы CF FACEIT нужен включённый JavaScript.</p></noscript>
+<noscript><p style="padding:24px;font-family:sans-serif">Для работы LX FACEIT нужен включённый JavaScript.</p></noscript>
 
 <!-- Inline SVG icon sprite (no external assets) -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <defs>
-    <!-- Original CF FACEIT mark: two rising geometric strokes. Not the FACEIT logo. -->
-    <symbol id="i-logo" viewBox="0 0 24 24"><path d="M24 2.7c0-.1-.1-.1-.2-.1-.1 0-.2.1-.2.2-2 3.1-4.1 6.2-6.1 9.4H.2c-.2 0-.3.3-.1.4 7.2 2.7 17.7 6.8 23.5 9.1.2.1.4-.1.4-.2V2.7z"/></symbol>
+    <!-- Original LX FACEIT mark: two rising geometric strokes. Not the FACEIT logo. -->
+    <symbol id="i-logo" viewBox="0 0 24 24"><path d="M2.5 3h4v14h7v4H2.5z"/><path d="m16.5 4 5 15m0-15-5 15" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z"/></symbol>
     <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></symbol>
     <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></symbol>
@@ -52,7 +53,7 @@
 <div id="splash" class="screen" hidden>
   <div class="splash-inner">
     <span class="splash-zoom"><svg class="logo-svg splash-logo" viewBox="0 0 48 48" aria-hidden="true"><use href="#i-logo"/></svg></span>
-    <div class="splash-word" aria-label="CF FACEIT"><b>CF</b> FACEIT</div>
+    <div class="splash-word" aria-label="LX FACEIT"><b>LX</b> FACEIT</div>
     <div class="splash-cta" id="splashCta"><p class="splash-tag" id="splashTag" aria-live="polite"></p><div class="cta-btns" id="ctaBtns"><button class="btn primary cta" type="button" id="ctaLogin">Войти</button><button class="btn cta" type="button" id="ctaReg">Регистрация</button></div></div>
   </div>
   <button class="skip" id="skipIntro" type="button">Пропустить</button>
@@ -63,9 +64,9 @@
   <div class="auth-wrap">
     <div class="auth-card" id="authCard">
       <button class="auth-back" id="authBack" type="button" aria-label="Назад">‹ Назад</button>
-      <div class="brand stagger" style="--i:0"><svg class="logo-svg" viewBox="0 0 48 48" aria-hidden="true"><use href="#i-logo"/></svg><span class="wm"><b>CF</b> FACEIT</span></div>
+      <div class="brand stagger" style="--i:0"><svg class="logo-svg" viewBox="0 0 48 48" aria-hidden="true"><use href="#i-logo"/></svg><span class="wm">FACEIT</span></div>
       <h1 class="stagger" style="--i:1" id="authTitle">Войти в аккаунт</h1>
-      <p class="lead stagger" style="--i:2">Онлайн-платформа CF FACEIT</p>
+      <p class="lead stagger" style="--i:2">Standoff 2 · рейтинговые матчи</p>
       <p id="cfOnlineStatus" class="cf-online-status" role="status" aria-live="polite" hidden></p>
 
       <div class="tabs stagger" style="--i:3" role="tablist" aria-label="Вход или регистрация">
@@ -82,7 +83,7 @@
         </div>
         <div class="field" id="loginGameIdField">
           <label for="loginGameId">Игровой ID <span class="muted">(только для игроков)</span></label>
-          <input class="input" id="loginGameId" name="game_id" type="text" inputmode="numeric" pattern="[0-9]{6,7}" minlength="6" maxlength="7" autocomplete="off" placeholder="6 или 7 цифр; админам можно пусто" aria-describedby="loginGameIdHint loginGameIdErr">
+          <input class="input" id="loginGameId" name="game_id" type="text" inputmode="numeric" pattern="[0-9]{6,16}" minlength="6" maxlength="16" autocomplete="off" placeholder="6–16 цифр; админам можно пусто" aria-describedby="loginGameIdHint loginGameIdErr">
           <p class="small muted" id="loginGameIdHint" style="margin-top:6px">Игровой ID для входа не требуется.</p>
           <p class="err" id="loginGameIdErr" role="alert"></p>
         </div>
@@ -95,8 +96,6 @@
           <p class="err" id="loginPassErr" role="alert"></p>
         </div>
         <button class="btn primary block" type="submit" id="loginBtn">Войти</button>
-        <div class="or-line"><span>или</span></div>
-        <button class="btn tg block tg-big" type="button" id="tgLoginBtn"><svg class="logo-svg" viewBox="0 0 24 24" aria-hidden="true" style="width:20px;height:20px;color:#fff"><use href="#i-telegram"/></svg>Войти через Telegram</button>
         <p class="auth-links" style="margin-top:10px"><button type="button" class="linkbtn" id="forgotPassword">Забыл пароль?</button></p>
       </form>
 
@@ -104,9 +103,9 @@
         <div class="wiz-head"><div class="wiz-dots" id="wizDots"><i class="on"></i><i></i><i></i></div><p class="wiz-step" id="wizStep">Шаг 1 из 3</p></div>
         <form id="formRegister" novalidate>
           <section class="rstep on" data-step="1">
-            <h2 class="rs-title">Игровой ID</h2><p class="rs-sub">Введи игровой ID из 6 или 7 цифр. Он нужен для регистрации игрового профиля, но не для входа.</p>
-            <div class="field"><label for="regGameId">Игровой ID (6 или 7 цифр)</label>
-              <input class="input big" id="regGameId" name="game_id" type="text" inputmode="numeric" pattern="[0-9]{6,7}" minlength="6" maxlength="7" autocomplete="off" aria-describedby="regGameIdErr" required>
+            <h2 class="rs-title">Игровой ID</h2><p class="rs-sub">Введи числовой ID профиля Standoff 2 (6–16 цифр). Он нужен для регистрации игрового профиля, но не для входа.</p>
+            <div class="field"><label for="regGameId">ID профиля Standoff 2 (6–16 цифр)</label>
+              <input class="input big" id="regGameId" name="game_id" type="text" inputmode="numeric" pattern="[0-9]{6,16}" minlength="6" maxlength="16" autocomplete="off" aria-describedby="regGameIdErr" required>
               <p class="err" id="regGameIdErr" role="alert"></p></div>
             <div class="field"><label for="regRegion">Регион подбора</label>
               <select class="input" id="regRegion" name="region"><option value="all">Все регионы</option><option value="ru">Россия</option><option value="eu">Европа</option><option value="asia">Азия</option></select>
@@ -138,13 +137,11 @@
           </section>
           <div class="wiz-actions"><button class="btn" type="button" id="wizBack" hidden>Назад</button><button class="btn primary" type="button" id="wizNext">Далее</button><button class="btn primary" type="submit" id="registerBtn" hidden>Создать аккаунт</button></div>
         </form>
-        <div class="or-line"><span>или</span></div>
-        <button class="btn tg block tg-big" type="button" id="tgRegBtn"><svg class="logo-svg" viewBox="0 0 24 24" aria-hidden="true" style="width:20px;height:20px;color:#fff"><use href="#i-telegram"/></svg>Регистрация через Telegram</button>
         <p class="auth-links" style="margin-top:14px"><span>Уже есть аккаунт? <button type="button" class="linkbtn" id="toLogin">Войти</button></span></p>
       </div>
 
       <div class="auth-links stagger" style="--i:5">
-        <button type="button" class="linkbtn" id="openSetup">Нет аккаунта CounterFlame?</button>
+        <button type="button" class="linkbtn" id="openSetup">Нет аккаунта Standoff 2?</button>
       </div>
       <p class="auth-foot stagger" style="--i:6">Неофициальный фан-проект.
         <button type="button" class="linkbtn" id="replayIntro">Показать интро</button></p>
@@ -157,18 +154,18 @@
   <button class="skip" id="wlSkip" type="button" hidden>Пропустить</button>
   <div class="wl-lockup" id="wlLockup">
     <svg class="logo-svg wl-logo" viewBox="0 0 48 48" aria-hidden="true"><use href="#i-logo"/></svg>
-    <span class="wl-word"><span class="wl-word-in" aria-label="COUNTER FLAME FACEIT"><b>COUNTER FLAME</b> FACEIT</span></span>
+    <span class="wl-word"><span class="wl-word-in" aria-label="LX FACEIT · STANDOFF 2"><b>LX</b> FACEIT</span></span>
   </div>
   <section class="wl-board" id="wlBoard" aria-label="О платформе">
     <div class="wl-viewport" id="wlViewport"><div class="wl-track" id="wlTrack">
       <article class="wl-slide"><div class="wl-card"><span class="wl-ico">★</span><h2 id="wlTitle1">Добро пожаловать!</h2>
-        <p>CF FACEIT — площадка для организованных матчей CounterFlame. Собирай команду, находи игроков и поднимайся в рейтинге.</p></div></article>
+        <p>LX FACEIT — площадка для организованных матчей Standoff 2. Собирай команду, находи игроков и поднимайся в рейтинге.</p></div></article>
       <article class="wl-slide"><div class="wl-card"><span class="wl-ico">▶</span><h2>Как играть</h2>
         <ol class="wl-list"><li>Найди друзей во вкладке «Поиск».</li><li>Собери лобби и пригласи их.</li><li>Нажми «Играть» и встань в очередь.</li><li>Когда матч найден — подтверди его.</li><li>После игры отправь итоги: администратор засчитает результат.</li></ol></div></article>
       <article class="wl-slide"><div class="wl-card"><span class="wl-ico">◎</span><h2>Рейтинг ELO</h2>
         <p>ELO рассчитывается по среднему рейтингу команд: победа над более сильным соперником ценнее, а ожидаемая победа приносит меньше очков. Результат подтверждает администратор после проверки скриншота. Уровней десять — от новичка до легенды.</p></div></article>
       <article class="wl-slide"><div class="wl-card"><span class="wl-ico">✓</span><h2>Правила</h2>
-        <ol class="wl-list"><li>Играй честно: без читов и оскорблений.</li><li>Никому не передавай пароль от аккаунта.</li><li>CF FACEIT — неофициальный фан-проект, не связанный с FACEIT и разработчиками CounterFlame.</li></ol></div></article>
+        <ol class="wl-list"><li>Играй честно: без читов и оскорблений.</li><li>Никому не передавай пароль от аккаунта.</li><li>LX FACEIT — неофициальный фан-проект, не связанный с FACEIT и разработчиками Standoff 2.</li></ol></div></article>
     </div></div>
     <div class="wl-nav">
       <button class="wl-arrow" id="wlPrev" type="button" aria-label="Назад"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
@@ -184,13 +181,13 @@
 <div id="app" class="fade" hidden>
   <header class="topbar">
     <button class="icon-btn cf-menu-trigger" id="cfMenuTrigger" type="button" aria-label="Открыть меню" aria-expanded="false"><span class="hamburger-lines"><i></i><i></i><i></i></span></button>
-    <div class="brand"><svg class="logo-svg" viewBox="0 0 48 48" aria-hidden="true" style="color:var(--accent)"><use href="#i-logo"/></svg><span class="wm"><b>CF</b> FACEIT</span></div>
+    <div class="brand"><svg class="logo-svg" viewBox="0 0 48 48" aria-hidden="true" style="color:var(--accent)"><use href="#i-logo"/></svg><span class="wm">FACEIT</span></div>
     <div class="top-right"><div class="cf-site-presence" id="cfSitePresence" role="status" aria-label="Онлайн-счётчик подключается" title="Активные посетители сайта"><span class="cf-presence-dot" aria-hidden="true"></span><span class="cf-presence-count" id="cfSitePresenceCount">—</span><span class="cf-presence-label">онлайн</span></div><button class="icon-btn bell" id="bellBtn" type="button" aria-label="Сообщения от сайта" hidden><svg class="ic" aria-hidden="true"><use href="#i-bell"/></svg><span class="bell-n" id="bellN" hidden>0</span></button><button class="chip-user" id="userChip" type="button" aria-label="Открыть профиль"></button></div>
   </header>
   <aside id="cfDrawer" class="cf-drawer" hidden aria-label="Боковое меню">
     <button class="cf-drawer-backdrop" type="button" data-drawer-close aria-label="Закрыть меню"></button>
     <div class="cf-drawer-panel">
-      <div class="cf-drawer-head"><div><b>CF FACEIT</b><small>Игровое меню</small></div><button class="icon-btn" type="button" data-drawer-close aria-label="Закрыть">×</button></div>
+      <div class="cf-drawer-head"><div><b>LX FACEIT</b><small>Игровое меню</small></div><button class="icon-btn" type="button" data-drawer-close aria-label="Закрыть">×</button></div>
       <button class="cf-drawer-link" type="button" data-drawer="settings"><span>⚙</span><span><b>Настройки</b><small>Тема оформления и язык</small></span></button>
       <button class="cf-drawer-link" type="button" data-drawer="friends"><span>♧</span><span><b>Друзья</b><small>Список друзей и заявки</small></span><span id="cfFriendDot" class="cf-menu-dot" hidden></span></button>
       <button class="cf-drawer-link" type="button" data-drawer="messenger"><span>✉</span><span><b>Мессенджер</b><small>Каналы, группы и чаты</small></span></button>
