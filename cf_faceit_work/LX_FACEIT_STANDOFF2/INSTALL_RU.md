@@ -14,14 +14,7 @@
 ## Сайт
 
 1. Загрузи **содержимое `PAGES_UPLOAD/`** в корень HTTPS-хостинга. Не загружай туда SQL-файлы.
-2. В `PAGES_UPLOAD/js/config.js` задай URL выделенного LX Supabase и его публичный anon/publishable key:
-
-   ```js
-   window.LX_SUPABASE_URL = 'https://YOUR-LX-PROJECT.supabase.co';
-   window.LX_SUPABASE_ANON_KEY = 'YOUR_PUBLIC_ANON_OR_PUBLISHABLE_KEY';
-   ```
-
-   В этот файл нельзя помещать `service_role`, секретные или административные ключи.
+2. `PAGES_UPLOAD/js/config.js` уже настроен на выделенный проект LX Supabase с публичным publishable key. Если переносишь сайт в другой проект LX, замени там URL проекта и его публичный anon/publishable key. Никогда не помещай в сайт `service_role`, секретные или административные ключи.
 3. В настройках Auth разреши регистрацию по электронной почте, настрой подтверждение email и добавь домен сайта в разрешённые Redirect URLs.
 4. Для входа по нику опубликуй `supabase/functions/login-by-nickname/index.ts` как Edge Function `login-by-nickname`. Вход по email использует Auth напрямую. Исходники функций оплаты Telegram и проверки скриншотов тоже находятся в `supabase/functions/`; это необязательные интеграции и требуют свои секреты.
 

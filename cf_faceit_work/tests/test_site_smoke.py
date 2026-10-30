@@ -71,8 +71,32 @@ class SiteSmokeTests(unittest.TestCase):
         self.assertIn("window.LX_SUPABASE_ANON_KEY", config_code)
         self.assertNotIn("window.CF_SUPABASE_URL", config_code)
         self.assertNotIn("window.CF_SUPABASE_ANON_KEY", config_code)
-        self.assertNotRegex(config_code, r"window\.LX_SUPABASE_URL\s*=\s*window\.LX_SUPABASE_URL\s*\|\|\s*'https?://")
+        self.assertRegex(config_code, r"window\.LX_SUPABASE_URL\s*=\s*window\.LX_SUPABASE_URL\s*\|\|\s*'https://cmvlxlowroxcwdiqjnsr\.supabase\.co'")
+        self.assertRegex(config_code, r"window\.LX_SUPABASE_ANON_KEY\s*=\s*window\.LX_SUPABASE_ANON_KEY\s*\|\|\s*'sb_publishable_[A-Za-z0-9_-]+'")
         self.assertNotRegex(config_code, r"service[_-]?role|sb_secret_")
+
+    def test_every_navigable_section_has_a_template(self):
+        app = APP.read_text(encoding="utf-8")
+        match = re.search(r"var TEMPLATES = \{(.*?)\n\};", app, flags=re.DOTALL)
+        self.assertIsNotNone(match, "section template registry is missing")
+        entries = dict(re.findall(r"([a-z]+):\s*(tpl[A-Z][A-Za-z0-9]*)", match.group(1)))
+        expected = {
+            "home": "tplHome",
+            "news": "tplNews",
+            "search": "tplSearch",
+            "play": "tplPlay",
+            "top": "tplTop",
+            "tournaments": "tplTournaments",
+            "profile": "tplProfile",
+            "admin": "tplAdmin",
+            "messenger": "tplMessenger",
+            "demos": "tplDemos",
+            "shop": "tplShop",
+        }
+        self.assertEqual(entries, expected)
+        for function in expected.values():
+            self.assertRegex(app, rf"function {function}\(")
+        self.assertIn("No template registered for section", app)
 
     def test_registration_fields_and_wizard_stay_editable_offline(self):
         app = APP.read_text(encoding="utf-8")
@@ -137,6 +161,10 @@ class SiteSmokeTests(unittest.TestCase):
             roots = {name.split("/", 1)[0] for name in archive.namelist() if not name.endswith("/")}
             self.assertEqual(roots, {"LX_FACEIT_STANDOFF2"})
             self.assertIn("LX_FACEIT_STANDOFF2/SQL/LX_FACEIT_FULL_SETUP.sql", archive.namelist())
+            self.assertEqual(
+                archive.read("LX_FACEIT_STANDOFF2/PAGES_UPLOAD/js/app.js"),
+                (BUNDLE_SITE / "js" / "app.js").read_bytes(),
+            )
 
     def test_full_setup_contains_baseline_before_lx_maps_and_avoids_data_purge(self):
         sql = BUNDLE_SQL.read_text(encoding="utf-8")

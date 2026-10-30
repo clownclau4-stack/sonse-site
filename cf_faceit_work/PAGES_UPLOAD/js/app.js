@@ -780,7 +780,9 @@ function renderSection(sec) {
   if (sec === 'messenger' && !msgr.loading) { msgr.loading = true; msgr.open = null; mgLoadList().then(function () { msgr.loading = false; mgRerender(); }); }
   updateHeader();
   try {
-    view.innerHTML = TEMPLATES[sec](u);
+    var template = TEMPLATES[sec];
+    if (typeof template !== 'function') throw new Error('No template registered for section: ' + sec);
+    view.innerHTML = template(u);
     if (BINDERS[sec]) BINDERS[sec](u);
     cfHydrateBannerMedia(view);
   } catch (err) {
@@ -1155,6 +1157,19 @@ function cfAnimateEloBar(u) {
   if (progress) progress.setAttribute('aria-valuenow', String(Math.round(pct)));
   requestAnimationFrame(function () { requestAnimationFrame(function () { bar.style.width = pct + '%'; }); });
 }
+var TEMPLATES = {
+  home: tplHome,
+  news: tplNews,
+  search: tplSearch,
+  play: tplPlay,
+  top: tplTop,
+  tournaments: tplTournaments,
+  profile: tplProfile,
+  admin: tplAdmin,
+  messenger: tplMessenger,
+  demos: tplDemos,
+  shop: tplShop
+};
 var BINDERS = {
   search: function () { bindSearch(); },
   tournaments: function () { bindTournaments(); },
